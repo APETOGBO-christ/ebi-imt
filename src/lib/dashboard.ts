@@ -86,15 +86,14 @@ async function sumActiveInstallments(): Promise<bigint> {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const db = client()
   const now = new Date().toISOString()
-  const [leads, meetings, orders, confirmedPaymentsXof, tendersPreparing, tendersSubmitted, tendersWon, tendersLost, projects, clients, suppliers, ordersInProgress] = await Promise.all([
+  const [leads, meetings, orders, confirmedPaymentsXof, tendersInCourse, tendersWon, tendersLost, projects, clients, suppliers, ordersInProgress] = await Promise.all([
     db.from('leads').select('id', { count: 'exact', head: true }).not('status', 'in', '(won,lost,archived)'),
     db.from('appointments').select('id', { count: 'exact', head: true }).eq('kind', 'meeting').in('status', ['scheduled', 'confirmed']).gte('scheduled_at', now),
     db.from('orders').select('id', { count: 'exact', head: true }).in('order_status', ['confirmed', 'in_progress', 'completed']),
     sumConfirmedPayments(),
-    db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'preparing'),
-    db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'submitted'),
-    db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'won'),
-    db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'lost'),
+    db.from('tenders').select('id', { count: 'exact', head: true }).not('status', 'in', '(gagne,perdu,annule)'),
+    db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'gagne'),
+    db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'perdu'),
     db.from('projects').select('id', { count: 'exact', head: true }).in('status', ['planned', 'in_progress']),
     db.from('companies').select('id, company_roles!inner(role_code)', { count: 'exact', head: true }).eq('is_active', true).eq('company_roles.role_code', 'client'),
     db.from('companies').select('id, company_roles!inner(role_code)', { count: 'exact', head: true }).eq('is_active', true).eq('company_roles.role_code', 'fournisseur'),
@@ -102,7 +101,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   ])
   return {
     activeLeads: countResult(leads), scheduledMeetings: countResult(meetings), confirmedOrders: countResult(orders), confirmedPaymentsXof,
-    tendersInCourse: countResult(tendersPreparing) + countResult(tendersSubmitted), tendersWon: countResult(tendersWon), tendersLost: countResult(tendersLost),
+    tendersInCourse: countResult(tendersInCourse), tendersWon: countResult(tendersWon), tendersLost: countResult(tendersLost),
     activeProjects: countResult(projects), clientsCount: countResult(clients), suppliersCount: countResult(suppliers), ordersInProgress: countResult(ordersInProgress),
   }
 }
@@ -120,7 +119,7 @@ export async function getUpcomingDeadlines(): Promise<UpcomingDeadline[]> {
   const db = client()
   const now = new Date().toISOString()
   const [tenders, followUps, meetings] = await Promise.all([
-    db.from('tenders').select('id, tender_number, title, submission_deadline').in('status', ['preparing', 'submitted']).gte('submission_deadline', now).order('submission_deadline').limit(6),
+    db.from('tenders').select('id, tender_number, title, submission_deadline').not('status', 'in', '(gagne,perdu,annule)').gte('submission_deadline', now).order('submission_deadline').limit(6),
     db.from('leads').select('id, next_follow_up_at, companies!company_id(legal_name, trade_name)').not('next_follow_up_at', 'is', null).gte('next_follow_up_at', now).order('next_follow_up_at').limit(6),
     db.from('appointments').select('id, scheduled_at, leads!lead_id(companies!company_id(legal_name, trade_name))').eq('kind', 'meeting').in('status', ['scheduled', 'confirmed']).gte('scheduled_at', now).order('scheduled_at').limit(6),
   ])
@@ -173,17 +172,17 @@ export async function getInspectionData(zone: ZoneId): Promise<InspectionData> {
       return { metric: 'Rendez-vous programmés', value: String(countResult(future)), details: [{ label: 'Démonstrations réalisées', value: String(countResult(demos)) }, { label: 'Activités passées', value: String(countResult(past)) }] }
     }
     case 'offers': {
-      const [offers, proposals, accepted, orders, recent, contractTotal, daoPreparing, daoSubmitted, daoWon, daoLost] = await Promise.all([
+      const [offers, proposals, accepted, orders, recent, contractTotal, daoPreparing, daoDeposited, daoWon, daoLost] = await Promise.all([
         db.from('offer_templates').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         db.from('commercial_proposals').select('id', { count: 'exact', head: true }).in('status', ['approved', 'sent']),
         db.from('commercial_proposals').select('id', { count: 'exact', head: true }).eq('status', 'accepted'),
         db.from('orders').select('id', { count: 'exact', head: true }).in('order_status', ['confirmed', 'in_progress', 'completed']),
         db.from('orders').select('order_number,amount_xof').order('ordered_at', { ascending: false }).limit(1),
         sumConfirmedOrderAmounts(),
-        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'preparing'),
-        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'submitted'),
-        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'won'),
-        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'lost'),
+        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'en_preparation'),
+        db.from('tenders').select('id', { count: 'exact', head: true }).in('status', ['depose', 'en_evaluation']),
+        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'gagne'),
+        db.from('tenders').select('id', { count: 'exact', head: true }).eq('status', 'perdu'),
       ])
       if (recent.error) throw new Error(recent.error.message)
       return { metric: 'Commandes confirmées', value: String(countResult(orders)), details: [
@@ -191,7 +190,7 @@ export async function getInspectionData(zone: ZoneId): Promise<InspectionData> {
         { label: 'Propositions en cours', value: String(countResult(proposals)) },
         { label: 'Propositions acceptées', value: String(countResult(accepted)) },
         { label: 'DAO en préparation', value: String(countResult(daoPreparing)) },
-        { label: 'DAO soumis', value: String(countResult(daoSubmitted)) },
+        { label: 'DAO déposés / en évaluation', value: String(countResult(daoDeposited)) },
         { label: 'DAO gagnés / perdus', value: `${countResult(daoWon)} / ${countResult(daoLost)}` },
         { label: 'Montant contractuel confirmé', value: `${new Intl.NumberFormat('fr-TG').format(contractTotal)} FCFA` },
         { label: 'Dernière commande', value: recent.data?.[0] ? `${recent.data[0].order_number} · ${new Intl.NumberFormat('fr-TG').format(recent.data[0].amount_xof)} FCFA` : 'Aucune' },

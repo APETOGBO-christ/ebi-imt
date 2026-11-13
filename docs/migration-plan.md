@@ -9,12 +9,12 @@ Stratégie de mise en place d'un projet Supabase **neuf** pour EBI-IMT, établie
 | Ancien projet (cortexiagroup) | Lié historiquement, 3/15 migrations appliquées, abandonné — **aucune opération** |
 | Lien CLI local | Lié au projet neuf `xxilfzpkdwggfilwyrjw` (EBI Manager) — ancien ref `qyyvgmndcaroywkyefdf` jamais touché |
 | `.env.local` | URL + clé publishable du projet neuf (aucune clé service côté frontend) |
-| Migrations locales | **27** applicables depuis zéro (15 socle + 12 extensions EBI-IMT, 66 tables) |
+| Migrations locales | **30** applicables depuis zéro (15 socle + 15 extensions EBI-IMT, 70 tables) |
 | Code | typecheck OK, 46/46 tests Vitest OK, build OK (preuves dans `docs/audit-final.md` § 7) |
 
 ## 2. Ordre d'application des migrations
 
-Les **27** fichiers s'appliquent dans l'ordre chronologique de leur horodatage (convention `supabase db push`) : migrations 1-15 = socle Cortexia audité, migrations **16-27 = extensions EBI-IMT** (PROMPT 2/3/4, en attente de validation humaine — voir § 5). État attendu après push complet : **66 tables** (42 socle + 24 extensions), 16 enums (+1 valeur `library_document` en M26), 5 séquences socle + table `official_sequences`, 4 buckets Storage, ~61 RPC publiques, RLS intégral avec porte `active_profile_gate` sur chaque table d'extension. Le point de contrôle exact est défini dans `docs/phase-0-checklist.md` (V4-V5).
+Les **30** fichiers s'appliquent dans l'ordre chronologique de leur horodatage (convention `supabase db push`) : migrations 1-15 = socle Cortexia audité, migrations **16-30 = extensions EBI-IMT** (PROMPT 2/3/4 + module appels d'offres étendu). État attendu après push complet : **70 tables** (42 socle + 28 extensions), 16 enums (+1 valeur `library_document` en M26), 5 séquences socle + table `official_sequences`, 4 buckets Storage, ~65 RPC métier publiques, RLS intégral avec porte `active_profile_gate` sur chaque table d'extension. Le point de contrôle exact est défini dans `docs/phase-0-checklist.md` (V4-V5).
 
 Particularités à connaître avant le push :
 
@@ -36,7 +36,7 @@ Particularités à connaître avant le push :
 | 4 | Lier le CLI : `supabase login` puis `supabase link --project-ref <ref neuf>` | CLI | Vérifier deux fois le ref ; ensuite `supabase migration list --linked` doit afficher **0 migration** |
 | 5 | Revue finale des 27 migrations (checklist V4 de Phase 0) + corrections S5/D3 **appliquées** + validation V2.1 de la matrice | Lecture + édition locale | Aucun push avant validation de la revue |
 | 6 | Appliquer : `supabase db push` (ou `--dry-run` d'abord) | CLI | Vérifier la sortie : 27 migrations appliquées, 0 erreur |
-| 7 | Vérifier le schéma : requêtes de contrôle (66 tables, RLS actif sur tout, grants anon vides) | Studio / SQL | Preuves archivées |
+| 7 | Vérifier le schéma : requêtes de contrôle (70 tables, RLS actif sur tout, grants anon vides) | Studio / SQL | Preuves archivées |
 | 8 | Exécuter les tests : `supabase test db` (pgTAP) — à faire **en local Docker d'abord** (V5) | CLI | 31/31 attendu + scénarios comportementaux écrits en Phase 0 |
 | 9 | Générer les types : `supabase gen types typescript --linked > src/types/database.ts` | CLI | Rebuild typecheck + tests après |
 | 10 | Déployer les Edge Functions : `supabase functions deploy issue-proposal issue-finance-document invite-user document-upload-init document-upload-confirm document-download-url document-delete document-restore r2-reconcile` | CLI | Les 9 fonctions répondent 200/401 via curl |
@@ -70,9 +70,9 @@ Modifications **en place** dans les fichiers existants, justifiées par le fait 
 
 Variante acceptée pour 1-2 : une migration additive supplémentaire (`update finance_settings set receipt_prefix=…`) si la direction préfère ne pas toucher l'historique. Recommandation : modification en place (historique de départ propre pour EBI-IMT).
 
-## 5. Migrations 16-27 — extensions EBI-IMT (PROMPT 2/3/4)
+## 5. Migrations 16-30 — extensions EBI-IMT (PROMPT 2/3/4 + module appels d'offres)
 
-Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 puis 28/28 corrective et 29/29 Phase 3, sur autorisation du commanditaire) après quatre corrections en place : M16 (drop/recréation de `profiles_insert` dépendante de la bascule du type de colonne), M25 (`coalesce` est un mot-clé — suppression des `pg_catalog.coalesce` invalides et qualification des built-ins dans les corps `search_path = ''`), M26 (trigger `crm_audit_companies` déjà créé par le socle — redondance retirée), puis migration 28 additive (corps `pg_catalog.nullif` invalides remplacés — voir ligne 28 du § 5). Chaque en-tête SQL détaille objectif/tables/dépendances/risques/retour arrière ; synthèse opérationnelle :
+Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 puis 28/28 corrective, 29/29 Phase 3 et 30/30 appels d'offres étendu, sur autorisation du commanditaire) après quatre corrections en place : M16 (drop/recréation de `profiles_insert` dépendante de la bascule du type de colonne), M25 (`coalesce` est un mot-clé — suppression des `pg_catalog.coalesce` invalides et qualification des built-ins dans les corps `search_path = ''`), M26 (trigger `crm_audit_companies` déjà créé par le socle — redondance retirée), puis migration 28 additive (corps `pg_catalog.nullif` invalides remplacés — voir ligne 28 du § 5). Chaque en-tête SQL détaille objectif/tables/dépendances/risques/retour arrière ; synthèse opérationnelle :
 
 | # | Fichier | Objectif | Tables / objets | Dépendances | Risques principaux | Retour arrière |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -90,6 +90,7 @@ Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 p
 | 27 | `20261114103027_document_library_rpc.sql` | Bibliothèque documentaire : RPC utilisateur et zone R2 | 3 CHECK élargis additivement (`r2-library`, `companies`/`contacts`, `upload`) ; `documents_select` +`permits('bibliotheque','select')` ; RPC `document_download_allowed`, `user_permits`, `document_request_delete`, `document_request_restore` | M17-M19, M26 | Vérification SHA-256 serveur plafonnée par `R2_VERIFY_MAX_BYTES` (au-delà : taille + hash déclaré, documenté) ; suppression/restauration réservées au module bibliothèque | db reset (base vide) ; sinon drop des 4 RPC, recréer `documents_select` et les 3 CHECK (corps dans M19 et socle commercial) |
 | 28 | `20261114110028_runtime_keyword_fixes.sql` | Correction runtime des corps déjà appliqués (migrations 25-27) | `create or replace` de 6 fonctions dont le corps appliqué portait `pg_catalog.nullif(...)` invalide : `admin_bootstrap_profile`, `finance_confirm_payment`, `finance_execute_adjustment` (M25), `company_create`, `company_activity_add` (M26), `document_request_delete` (M27) ; sources 25-27 corrigées au même endroit | M25-M27 | `nullif`/`coalesce` sont des mots-clés du parser (jamais qualifiables `pg_catalog.`) ; `count` est un vrai agrégat catalogué | Aucun objet destructif : recréer les corps antérieurs (conservés dans 25-27) |
 | 29 | `20261114111529_extension_workflows_phase3.sql` | Workflows d'écriture des extensions (Phase 3, PROMPT UI) | 9 RPC : `tender_create/update/set_status/item_add/item_remove/quote_set`, `project_create/set_status`, `production_update` ; transitions encadrées (won ⇒ validate + montant > 0, lost ⇒ motif), numérotation `next_official_number('dao'/'pro')`, événements `tender_events`, horodatages production | M16 (permits), M17 (numérotation), M20-M23, M26 | Aucune table nouvelle ; `direction` valide les engagements (matrice) ; lignes/devis DAO modifiables uniquement en `preparing` | Drop des 9 fonctions (aucun objet destructif) |
+| 30 | `20261114121630_tenders_expansion.sql` | Module appels d'offres étendu (cahier des charges complet) | `tenders` : +`description/publication_date/estimated_amount_xof/our_amount_xof/responsible_id`, rename `preparation_notes`→`observations`, remap statuts → CHECK 10 états (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`) ; 4 tables nouvelles `tender_documents/tender_tasks/tender_reminders/tender_comments` (RLS full CRUD authenticated) ; `orders.tender_id` + `commercial_proposals.tender_id` ; 9 RPC M29 redéfinies (10 états : gagne ⇒ `validate` + montant > 0, perdu ⇒ motif ; écritures lignes/devis limitées aux 5 états pré-dépôt) + 2 nouvelles `order_set_tender`/`proposal_set_tender` | M16 (permits), M17 (numérotation), M19 (`document_links`), M20, M26 (sociétés) | Remap des statuts en ouverture (base alors vierge de DAO) ; transitions encadrées ; pré-dépôt = 5 états | Drop des 4 tables + colonnes additives ; recréer les RPC (corps conservés dans le fichier) |
 
 Invariant respecté par toutes : RLS activé + politique SELECT `permits()` + porte restrictive `active_profile_gate` recréée + `anon` révoqué + grants SELECT à `authenticated` + écritures directes révoquées (hors UPDATE/INSERT admin sur `role_permissions`, encadrés admin+MFA, M25). Numérotation et transitions : `docs/database-relations.md` § 10 et § 12 ; modèle de sécurité : `docs/security-model.md`.
 
@@ -117,7 +118,7 @@ psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase\tests\pgm4_phase1
 # 3. Projet distant NEUF uniquement
 supabase link --project-ref <ref-neuf>                    # vérifier le ref !
 supabase migration list --linked                          # 0 migration attendue
-supabase db push --dry-run; supabase db push              # 29/29 attendu
+supabase db push --dry-run; supabase db push              # 30/30 attendu
 supabase gen types typescript --linked > src\types\database.ts
 
 # 4. Edge

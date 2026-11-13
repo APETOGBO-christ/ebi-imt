@@ -1,13 +1,13 @@
 ﻿# Schéma de base de données — EBI-IMT Business Manager
 
-Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-24, PROMPT 2)**. Aucune migration n'a été appliquée sur un projet distant — tout le contenu reste à valider puis à appliquer selon `docs/migration-plan.md`.
+Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-30, PROMPT 2/3/4 + module appels d'offres étendu)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (30/30) ; ce document reste la référence unique.
 
 ## 1. Organisation générale
 
 - **Schemas** : `public` (métier), `private` (fonctions helpers security definer), `auth`, `storage` (de Supabase). Extension activée : `pgcrypto`.
 - **Version PostgreSQL cible** : 17 (`supabase/config.toml:42`).
 - Socle : **42 tables métier**, **16 types énumérés**, **5 séquences**, **~30 déclencheurs**, **~54 fonctions RPC publiques** + helpers privés.
-- **Après la Phase 1 du PROMPT 4 (migrations 16-27) : 66 tables** (+24). Aucune extension ne crée d'enum (contraintes `text + check` partout) ; +1 RPC de numérotation + 2 helpers privés (`current_role_code`, `permits`).
+- **Après la migration 30 (module appels d'offres étendu) : 70 tables** (+28). Aucune extension ne crée d'enum (contraintes `text + check` partout) ; +1 RPC de numérotation + 2 helpers privés (`current_role_code`, `permits`).
 - Montants : `bigint` en FCFA entiers. Horodatages : `timestamptz`. Identifiants : `uuid`.
 
 ## 2. Migrations (ordre d'application)
@@ -43,6 +43,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 27 | `20261114103027_document_library_rpc.sql` | **EBI-IMT Phase 1** — zone R2 `r2-library` (staging), `document_links` +`companies/contacts`, journal +`upload`, `documents_select` +`permits('bibliotheque','select')`, RPC `document_download_allowed`/`user_permits`/`document_request_delete`/`document_request_restore` |
 | 28 | `20261114110028_runtime_keyword_fixes.sql` | **EBI-IMT Phase 1** — correction runtime : `create or replace` des 6 corps (M25-M27) invalidés par `pg_catalog.nullif` (mot-clé non qualifiable) ; sources 25-27 corrigées au même endroit |
 | 29 | `20261114111529_extension_workflows_phase3.sql` | **EBI-IMT Phase 3** — 9 RPC d'écriture : `tender_create/update/set_status/item_add/item_remove/quote_set`, `project_create/set_status`, `production_update` (transitions encadrées, numérotation DAO/PRO, événements, audit) |
+| 30 | `20261114121630_tenders_expansion.sql` | **EBI-IMT Appels d'offres étendu** — `tenders` +5 colonnes (`description/publication_date/estimated_amount_xof/our_amount_xof/responsible_id`), rename `observations`, CHECK 10 statuts (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`) ; `tender_documents/tender_tasks/tender_reminder/tender_comments` (4 tables, RLS full CRUD) ; `orders.tender_id` + `commercial_proposals.tender_id` ; RPC redéfinies + `order_set_tender`/`proposal_set_tender` |
 
 ## 3. Types énumérés
 
@@ -172,7 +173,7 @@ Légende : **PK** = clé primaire, UK = contrainte unique, FK = référence, CK 
 
 Porte restrictive supplémentaire (migration 15) : sessions sans profil actif exclues des 4 buckets.
 
-## 7. Fonctions RPC publiques (63 + 1)
+## 7. Fonctions RPC publiques (65 + 1)
 
 Par domaine — toutes `security definer`, `search_path` verrouillé, rôle vérifié en début, audit/événements écrits :
 
@@ -184,7 +185,8 @@ Par domaine — toutes `security definer`, `search_path` verrouillé, rôle vér
 - **Réservées `service_role` (Edge, 4)** : `commercial_finalize_document`, `finance_claim_document_job`, `finance_fail_document_job`, `finance_finalize_document_job`.
 - **Signalement (1)** : `ebi_signup_ready` (granted à `anon`, pré-check d'inscription).
 - **Numérotation (1, M17)** : `next_official_number(kind)` — émission des numéros DAO/PRO/CMD/ACH/LIV/FAC, appelée par les RPC des extensions ; jamais appelée directement par le client.
-- **Appels d'offres / Projets / Production (9, M29)** : `tender_create`, `tender_update`, `tender_set_status` (won ⇒ `validate` de la matrice + montant > 0 ; lost ⇒ motif), `tender_item_add`, `tender_item_remove`, `tender_quote_set` (écritures DAO limitées à l'état `preparing`), `project_create` (DAO gagné uniquement), `project_set_status`, `production_update` (permits `commandes`, horodatages auto, audit manuel).
+- **Appels d'offres / Projets / Production (9, M29 ; corps redéfinis en M30)** : `tender_create`, `tender_update`, `tender_set_status` (10 états : `gagne` ⇒ `validate` de la matrice + montant > 0 ; `perdu` ⇒ motif), `tender_item_add`, `tender_item_remove`, `tender_quote_set` (écritures limitées aux 5 états pré-dépôt), `project_create` (DAO gagné uniquement), `project_set_status`, `production_update` (permits `commandes`, horodatages auto, audit manuel).
+- **Relations appels d'offres (2, M30)** : `order_set_tender`, `proposal_set_tender` — rattachement/détachement (par `null`) d'une commande ou d'une proposition à un dossier DAO (permits `commandes`/`propositions` update).
 
 Les 5 fonctions socle redéfinies en M16 (`current_app_role`, `crm_actor`, `set_profile_role`, `commercial_finalize_document`, `create_pending_profile_for_auth_user`) conservent leurs privilèges et signatures.
 
@@ -211,11 +213,11 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 ---
 
-# Partie 2 — Extensions EBI-IMT (migrations 16-24, PROMPT 2)
+# Partie 2 — Extensions EBI-IMT (migrations 16-30, PROMPT 2/3/4 + appels d'offres étendu)
 
-> Statut : **proposé, non appliqué**. Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`.
+> Statut : **appliqué** (30/30 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`.
 
-## 9. Tables des extensions (23)
+## 9. Tables des extensions (27)
 
 ### 9.1 Gouvernance (M16 — 2)
 
@@ -240,12 +242,14 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 - **document_reconciliation** — audit stock R2 ↔ base : `bucket_id`, `storage_path` UK, `expected/found_sha256`, `status` (`missing|orphan|hash_mismatch|resolved`), `resolved_by/at`.
 - **M27** : RPC utilisateur `document_download_allowed(uuid)`, `user_permits(text,text)`, `document_request_delete(uuid,text)`, `document_request_restore(uuid)` ; lecture `documents` ouverte au module bibliothèque (`permits('bibliotheque','select')`) ; écritures directes toujours révoquées (les Edge agissent avec la clé service).
 
-### 9.5 Appels d'offres (M20 — 4)
+### 9.5 Appels d'offres (M20 — 4, étendus en M30)
 
-- **tenders** — `tender_number` UK (DAO-…), `title`, `organism_company_id` FK, `sector`, `source`, `submission_deadline`, `opening_at`, `status` CHECK (`preparing|submitted|won|lost|cancelled`), `awarded_amount_xof/at`, `lost_reason` (CHECK won ⇒ montant+date ; lost ⇒ motif), `created_by`. Audit `crm_audit_row`.
+- **tenders** — `tender_number` UK (DAO-…), `title`, `organism_company_id` FK, `sector`, `source`, `submission_deadline`, `opening_at`, `status` CHECK **10 états M30** (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`, matrice de transitions dans les RPC), `awarded_amount_xof/at`, `lost_reason`, **M30 : `description`, `publication_date`, `estimated_amount_xof`, `our_amount_xof`, `responsible_id` FK profiles, rename `observations`**. Audit `crm_audit_row`.
 - **tender_items** — lignes du DAO : UK (tender_id, position), CHECK `amount = round(qté × prix)`.
 - **tender_quotes** — devis fournisseurs par ligne : UK (item, supplier), `quote_xof`.
 - **tender_events** — traçabilité.
+- **M30 — suivi** : **tender_documents** (document_id FK documents + category CHECK 9 catégories DAO/pièces/offre technique/offre financière/devis/justificatifs/correspondances/PV/résultats, UK (document, tender) — la bibliothèque reste le stockage maître), **tender_tasks** (tâches assignées : label, assignee FK profiles, due_date, done_at/by), **tender_reminders** (rappels : remind_at, done_at), **tender_comments** (commentaires avec event_kind optionnel) — toutes RLS full CRUD `authenticated`.
+- **M30 — relations** : `orders.tender_id` et `commercial_proposals.tender_id` (FK additives, index) — une commande ou une proposition peut être rattachée à un DAO (`order_set_tender`/`proposal_set_tender`).
 
 ### 9.6 Projets (M21 — 1 + orders étendu)
 
@@ -274,7 +278,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 ## 10. Sécurité des extensions
 
-- **RLS activé sur les 23 tables**, politique SELECT pour `authenticated` seulement, **aucun INSERT/UPDATE/DELETE accordé** : écritures via RPC (Phase 3), à l'exception de la matrice `role_permissions` (UPDATE admin).
+- **RLS activé sur les 27 tables** (23 M16-24 + 4 M30), politique SELECT pour `authenticated` seulement, **aucun INSERT/UPDATE/DELETE accordé** : écritures via RPC (Phase 3), à l'exception de la matrice `role_permissions` (UPDATE admin) et des 4 tables de suivi DAO (full CRUD `authenticated` en M30).
 - Politiques SELECT : `permits('module','select')` avec lectures croisées là où pertinent (`supplier_invoices`/`supplier_payments` : achats OU facturation ; `deliveries` client : livraisons OU commandes ; `company_roles` : clients OU fournisseurs OU partenaires ; `document_access_logs`/`document_links` : visibilité du document parent ; `document_uploads` : déposant OU bibliothèque ; `document_reconciliation`/`official_sequences` : paramètres).
 - **Porte restrictive `active_profile_gate` recréée manuellement sur chaque nouvelle table** (mitigation S10) : une session sans profil actif ne lit rien.
 - `anon` : tous privilèges révoqués sur les 23 tables. Grants SELECT explicites à `authenticated`.
@@ -288,7 +292,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 | Module EBI-IMT | Tables principales | Écritures prévues (Phase 3) |
 | --- | --- | --- |
-| Appels d'offres | tenders, tender_items, tender_quotes, tender_events, companies | RPC tender_* (création avec `next_official_number('dao')`, transitions won/lost) |
+| Appels d'offres | tenders, tender_items, tender_quotes, tender_events, tender_documents, tender_tasks, tender_reminders, tender_comments, documents, companies, profiles | RPC tender_* (création `next_official_number('dao')`, transitions 10 états), suivi en full CRUD, `order_set_tender`/`proposal_set_tender` |
 | Projets | projects, orders (project_id), tenders | RPC project_* (création, rattachement commande) |
 | Achats | purchase_orders/_lines, supplier_invoices, supplier_payments, _events, company_roles | RPC purchase_*/supplier_* (immutabilité décaissements) |
 | Livraisons | deliveries, delivery_lines, orders, purchase_orders | RPC delivery_* (transitions, réception par ligne) |

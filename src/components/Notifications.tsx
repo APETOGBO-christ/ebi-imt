@@ -30,7 +30,7 @@ export function Notifications() {
       const soon = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
       try {
         const [tenders, payments, production, followUps] = await Promise.all([
-          supabase.from('tenders').select('id, tender_number, title, submission_deadline, status').in('status', ['preparing', 'submitted']).lte('submission_deadline', soon).order('submission_deadline').limit(5),
+          supabase.from('tenders').select('id, tender_number, title, submission_deadline, status').not('status', 'in', '(gagne,perdu,annule)').lte('submission_deadline', soon).order('submission_deadline').limit(5),
           supabase.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
           supabase.from('production_projects').select('id', { count: 'exact', head: true }).eq('status', 'blocked'),
           supabase.from('leads').select('id, next_follow_up_at, companies!company_id(legal_name, trade_name)').not('next_follow_up_at', 'is', null).lte('next_follow_up_at', now).order('next_follow_up_at').limit(5),
@@ -43,7 +43,7 @@ export function Notifications() {
             id: `tender-${row.id}`,
             severity: hours <= 48 ? 'crit' : 'warn',
             title: `Dépôt DAO : ${row.tender_number}`,
-            detail: `${row.title} — échéance dans ${hours <= 48 ? `${Math.max(1, Math.round(hours))} h` : `${Math.round(hours / 24)} j`} (${row.status === 'submitted' ? 'soumis' : 'en préparation'}).`,
+            detail: `${row.title} — échéance dans ${hours <= 48 ? `${Math.max(1, Math.round(hours))} h` : `${Math.round(hours / 24)} j`} (${row.status === 'depose' || row.status === 'en_evaluation' ? 'déposé' : 'en cours'}).`,
             link: '/appels-offres',
           })
         }
