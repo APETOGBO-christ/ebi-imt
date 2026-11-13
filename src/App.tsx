@@ -1,6 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { ArrowRight, ChevronDown, CircleHelp, Compass, LayoutGrid, LogOut, Menu, RotateCcw, X, UsersRound, CalendarDays, ShoppingBag, WalletCards } from 'lucide-react'
+import { ArrowRight, ChevronDown, CircleHelp, Compass, LayoutGrid, LogOut, Menu, RotateCcw, ShieldCheck, X, UsersRound, CalendarDays, ShoppingBag, WalletCards } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { useAuth, roleLabels } from './lib/auth'
 import { getDashboardStats, getInspectionData, type DashboardStats, type InspectionData } from './lib/dashboard'
@@ -28,6 +28,7 @@ import { SocietesPage } from './societes/SocietesPage'
 import { CompanyForm } from './societes/CompanyForm'
 import { CompanyDetail } from './societes/CompanyDetail'
 import { BibliothequePage } from './bibliotheque/BibliothequePage'
+import { MfaCard } from './security/MfaCard'
 
 const CommandScene = lazy(() => import('./components/CommandScene'))
 const zoneModule = (id: ZoneId) => modules.find(module => module.id === zones.find(zone => zone.id === id)?.moduleId)!
@@ -151,7 +152,7 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="top-spacer" />
       <GlobalSearch />
       <button className="account-trigger" type="button" onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen}><span className="avatar">{profile?.full_name?.slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{profile?.full_name}</strong><small>{profile && roleLabels[profile.role]}</small></span><ChevronDown size={15} /></button>
-      {accountOpen && <div className="account-menu"><div><strong>{profile?.full_name}</strong><small>{profile && roleLabels[profile.role]}</small></div><button onClick={() => void signOut()}><LogOut size={16} /> Se déconnecter</button></div>}
+      {accountOpen && <div className="account-menu"><div><strong>{profile?.full_name}</strong><small>{profile && roleLabels[profile.role]}</small></div><Link to="/securite" onClick={() => setAccountOpen(false)}><ShieldCheck size={16} /> Sécurité &amp; double validation</Link><button onClick={() => void signOut()}><LogOut size={16} /> Se déconnecter</button></div>}
     </header>
     <aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-caption">NAVIGATION</div>
@@ -253,5 +254,8 @@ export default function App() {
     <Route path="/rapports" element={page(<ReportsPage />)} />
     <Route path="/societes" element={page(<SocietesPage />)} /><Route path="/societes/nouveau" element={page(<CompanyForm />)} /><Route path="/societes/:id/modifier" element={page(<CompanyForm />)} /><Route path="/societes/:id" element={page(<CompanyDetail />)} />
     <Route path="/bibliotheque" element={page(<BibliothequePage />)} />
+    <Route path="/securite" element={page(
+      <div className="module-page"><div className="page-heading"><div><span className="section-kicker">ESPACE DE TRAVAIL</span><h1>Sécurité du compte</h1><p>Double validation (MFA), exigée des administrateurs pour les opérations sensibles.</p></div></div><MfaCard /></div>
+    )} />
     {modules.filter(module => !['dashboard', 'societes', 'prospects', 'sales', 'activities', 'imports', 'offers', 'proposals', 'orders', 'payments', 'expenses', 'commissions', 'reports', 'bibliotheque'].includes(module.id)).map(module => <Route key={module.id} path={module.path} element={page(<ModulePage moduleId={module.id} />)} />)}<Route path="*" element={<Navigate to="/" replace />} /></Routes>
 }

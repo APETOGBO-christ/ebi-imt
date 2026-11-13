@@ -1,7 +1,7 @@
 // Opérations Cloudflare R2 (compatible S3) au-dessus de r2sigv4.
 // Module sans global Deno : la configuration est passée en paramètre,
 // les variables d'environnement restent lues dans les fonctions Edge.
-import { presignUrl, sha256Hex, sha256Empty, signHeaderAuth, type Sigv4Credentials } from './r2sigv4'
+import { presignUrl, sha256Hex, sha256Empty, signHeaderAuth, type Sigv4Credentials } from './r2sigv4.ts'
 
 export interface R2Config {
   accountId: string

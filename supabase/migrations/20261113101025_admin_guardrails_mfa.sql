@@ -194,7 +194,7 @@ begin
   ) then raise exception 'rôle inconnu ou déprécié'; end if;
   if not exists (select 1 from auth.users u where u.id = p_user_id) then
     raise exception 'utilisateur Auth inconnu'; end if;
-  v_name := pg_catalog.nullif(pg_catalog.btrim(coalesce(p_full_name, '')), '');
+  v_name := nullif(pg_catalog.btrim(coalesce(p_full_name, '')), '');
   if v_name is not null then
     update public.profiles set role = p_role, full_name = v_name where id = p_user_id;
   else
@@ -266,7 +266,7 @@ begin
     raise exception 'pending payment on active order required'; end if;
   select * into v_account from public.payment_accounts where id = v_payment.payment_account_id;
   if v_account.id is null or v_account.method <> v_payment.method then raise exception 'official account missing'; end if;
-  if pg_catalog.nullif(pg_catalog.btrim(p_verified_reference), '') is null then raise exception 'official reference required'; end if;
+  if nullif(pg_catalog.btrim(p_verified_reference), '') is null then raise exception 'official reference required'; end if;
   if p_source is null or (v_payment.method = 'merchant_account' and p_source <> 'merchant_portal') or
      (v_payment.method = 'bank_transfer' and p_source <> 'bank_statement') or
      (v_payment.method = 'cash' and p_source <> 'cash_register') then
@@ -286,7 +286,7 @@ begin
   update public.payments set status = 'confirmed', review_state = 'resolved',
     verified_by = v_actor, verified_at = pg_catalog.now(), verification_source = p_source,
     verification_reference = pg_catalog.btrim(p_verified_reference),
-    verification_note = pg_catalog.nullif(pg_catalog.btrim(p_note), ''),
+    verification_note = nullif(pg_catalog.btrim(p_note), ''),
     cash_handed_over_at = p_cash_handed_over_at where id = p_payment_id
   returning * into v_payment;
   insert into public.financial_ledger(order_id, payment_id, entry_kind, amount_xof, recorded_by)
@@ -341,8 +341,8 @@ begin
   if v_adjustment.order_id is null then raise exception 'adjustment unavailable'; end if;
   select * into v_order from public.orders where id = v_adjustment.order_id for update;
   select * into v_adjustment from public.financial_adjustments where id = p_id for update;
-  if v_adjustment.status <> 'approved' or pg_catalog.nullif(pg_catalog.btrim(p_source), '') is null or
-    pg_catalog.nullif(pg_catalog.btrim(p_external_reference), '') is null then
+  if v_adjustment.status <> 'approved' or nullif(pg_catalog.btrim(p_source), '') is null or
+    nullif(pg_catalog.btrim(p_external_reference), '') is null then
     raise exception 'approved adjustment with external verification required'; end if;
   select * into v_payment from public.payments where id = v_adjustment.payment_id for update;
   select coalesce(pg_catalog.sum(amount_xof), 0)::bigint into v_prior from public.financial_ledger

@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.1
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version',
   'Content-Type': 'application/json',
 }
 

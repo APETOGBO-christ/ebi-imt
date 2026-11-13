@@ -209,23 +209,23 @@ begin
   if not coalesce(v_allowed, false) then
     raise exception 'permission de création requise (référentiel sociétés)';
   end if;
-  if pg_catalog.nullif(pg_catalog.btrim(coalesce(p_legal_name, '')), '') is null then
+  if nullif(pg_catalog.btrim(coalesce(p_legal_name, '')), '') is null then
     raise exception 'raison sociale requise';
   end if;
   insert into public.companies (legal_name, trade_name, industry, address, city,
     phone, email, website, registration_number, tax_number, notes, created_by)
   values (
     pg_catalog.btrim(p_legal_name),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_trade_name, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_industry, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_address, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_city, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_phone, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_email, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_website, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_registration_number, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_tax_number, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_notes, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_trade_name, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_industry, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_address, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_city, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_phone, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_email, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_website, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_registration_number, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_tax_number, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_notes, '')), ''),
     v_uid
   ) returning id into v_company;
   if p_role_codes is not null then
@@ -281,8 +281,8 @@ begin
   insert into public.company_activities (company_id, contact_id, author_id,
     activity_type, subject, body)
   values (p_company_id, p_contact_id, v_uid, p_activity_type,
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_subject, '')), ''),
-    pg_catalog.nullif(pg_catalog.btrim(coalesce(p_body, '')), ''))
+    nullif(pg_catalog.btrim(coalesce(p_subject, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_body, '')), ''))
   returning id into v_activity;
   return v_activity;
 end $$;

@@ -20,7 +20,7 @@ export async function listCompanies(filters: CompanyFilters): Promise<CompanyRow
   const search = filters.search?.replace(/[,%()]/g, ' ').trim()
   if (search) query = query.or(`legal_name.ilike.%${search}%,trade_name.ilike.%${search}%`)
   const { data, error } = await query
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return (data ?? []) as CompanyRow[]
 }
 
@@ -31,7 +31,7 @@ export async function getCompany(id: string): Promise<CompanyRow> {
     .eq('id', id)
     .order('full_name', { referencedTable: 'contacts', ascending: true })
     .maybeSingle()
-  if (error) throw error
+  if (error) throw new Error(error.message)
   if (!data) throw new Error('Société introuvable ou non accessible.')
   return data as CompanyRow
 }
@@ -52,7 +52,7 @@ export async function createCompany(input: CompanyInput): Promise<string> {
     p_tax_number: clean(input.tax_number),
     p_notes: clean(input.notes),
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return data as string
 }
 
@@ -63,7 +63,7 @@ export type CompanyPatch = Partial<Pick<CompanyRow,
 export async function updateCompany(id: string, patch: CompanyPatch): Promise<void> {
   if (!supabase) throw new Error('Connexion Supabase non configurée.')
   const { error } = await supabase.from('companies').update(patch).eq('id', id)
-  if (error) throw error
+  if (error) throw new Error(error.message)
 }
 
 export async function addContact(companyId: string, input: Omit<ContactRow, 'id' | 'company_id' | 'created_at' | 'is_active'>): Promise<void> {
@@ -73,13 +73,13 @@ export async function addContact(companyId: string, input: Omit<ContactRow, 'id'
     job_title: clean(input.job_title), email: clean(input.email),
     phone: clean(input.phone), is_primary: input.is_primary, notes: clean(input.notes),
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
 }
 
 export async function updateContact(id: string, patch: Partial<Pick<ContactRow, 'full_name' | 'job_title' | 'email' | 'phone' | 'is_primary' | 'is_active' | 'notes'>>): Promise<void> {
   if (!supabase) throw new Error('Connexion Supabase non configurée.')
   const { error } = await supabase.from('contacts').update(patch).eq('id', id)
-  if (error) throw error
+  if (error) throw new Error(error.message)
 }
 
 export async function listActivities(companyId: string): Promise<ActivityRow[]> {
@@ -89,7 +89,7 @@ export async function listActivities(companyId: string): Promise<ActivityRow[]> 
     .eq('company_id', companyId)
     .order('occurred_at', { ascending: false })
     .limit(100)
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return (data ?? []) as ActivityRow[]
 }
 
@@ -104,7 +104,7 @@ export async function addActivity(companyId: string, input: {
     p_subject: clean(input.subject),
     p_body: clean(input.body),
   })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return data as string
 }
 
@@ -124,6 +124,6 @@ export async function listCompanyDocuments(companyId: string): Promise<CompanyDo
     .eq('entity_table', 'companies')
     .eq('entity_id', companyId)
     .order('document_id', { ascending: false })
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return (data ?? []) as unknown as CompanyDocumentRow[]
 }

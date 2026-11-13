@@ -41,6 +41,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 25 | `20261113101025_admin_guardrails_mfa.sql` | **EBI-IMT** — garde-fous admin (dernier admin actif), MFA aal2, politiques/audit `role_permissions`, `ebi_signup_ready` false, grants `private` |
 | 26 | `20261114100026_companies_contacts_phase1.sql` | **EBI-IMT Phase 1** — `companies` +`trade_name/registration_number/tax_number/is_active` (+index, audit), `contacts.is_active`, `company_activities`, enum `document_type` +`library_document`, politiques référentiel élargies (permits), RPC `company_create`/`company_activity_add` |
 | 27 | `20261114103027_document_library_rpc.sql` | **EBI-IMT Phase 1** — zone R2 `r2-library` (staging), `document_links` +`companies/contacts`, journal +`upload`, `documents_select` +`permits('bibliotheque','select')`, RPC `document_download_allowed`/`user_permits`/`document_request_delete`/`document_request_restore` |
+| 28 | `20261114110028_runtime_keyword_fixes.sql` | **EBI-IMT Phase 1** — correction runtime : `create or replace` des 6 corps (M25-M27) invalidés par `pg_catalog.nullif` (mot-clé non qualifiable) ; sources 25-27 corrigées au même endroit |
 
 ## 3. Types énumérés
 

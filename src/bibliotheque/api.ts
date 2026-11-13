@@ -4,6 +4,12 @@ import type { ConfirmUploadResult, DocumentRow, InitUploadResult, ReconcileResul
 export interface DocumentFilters { search?: string; companyId?: string; familyKey?: string; deleted?: boolean }
 
 async function extractMessage(error: unknown, fallback: string): Promise<string> {
+  const name = (error as { name?: string } | null)?.name
+  if (name === 'FunctionsFetchError') {
+    const cause = (error as { context?: unknown }).context
+    const detail = cause instanceof Error && cause.message ? cause.message : 'raison inconnue'
+    return `${fallback} (réseau : ${detail})`
+  }
   if (error && typeof error === 'object' && 'context' in error) {
     const context = (error as { context: Response }).context
     try {
@@ -32,7 +38,7 @@ export async function listDocuments(filters: DocumentFilters): Promise<DocumentR
   const search = filters.search?.replace(/[,%()]/g, ' ').trim()
   if (search) query = query.or(`storage_path.ilike.%${search}%,metadata->>title.ilike.%${search}%`)
   const { data, error } = await query
-  if (error) throw error
+  if (error) throw new Error(error.message)
   return (data ?? []) as DocumentRow[]
 }
 

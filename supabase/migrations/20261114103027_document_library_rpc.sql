@@ -109,7 +109,7 @@ begin
   if not coalesce((select private.permits('bibliotheque','delete')), false) then
     raise exception 'permission de suppression requise (bibliothèque)';
   end if;
-  if pg_catalog.nullif(pg_catalog.btrim(coalesce(p_reason, '')), '') is null then
+  if nullif(pg_catalog.btrim(coalesce(p_reason, '')), '') is null then
     raise exception 'motif de suppression requis';
   end if;
   update public.documents

@@ -53,9 +53,9 @@ Deno.serve(async request => {
 
     const body = await request.json() as Payload
     if (!isUuid(body.upload_id)) return jsonResponse(400, { error: 'Identifiant de dépôt requis.' })
-    if (body.company_id !== undefined && !isUuid(body.company_id)) return jsonResponse(400, { error: 'Société invalide.' })
-    if (body.contact_id !== undefined && !isUuid(body.contact_id)) return jsonResponse(400, { error: 'Contact invalide.' })
-    if (body.supersedes_id !== undefined && !isUuid(body.supersedes_id)) return jsonResponse(400, { error: 'Version précédente invalide.' })
+    if (body.company_id !== undefined && body.company_id !== null && !isUuid(body.company_id)) return jsonResponse(400, { error: 'Société invalide.' })
+    if (body.contact_id !== undefined && body.contact_id !== null && !isUuid(body.contact_id)) return jsonResponse(400, { error: 'Contact invalide.' })
+    if (body.supersedes_id !== undefined && body.supersedes_id !== null && !isUuid(body.supersedes_id)) return jsonResponse(400, { error: 'Version précédente invalide.' })
 
     const { data: allowed, error: permitError } = await userClient(url, anonKey, token)
       .rpc('user_permits', { p_module: 'bibliotheque', p_action: 'insert' })

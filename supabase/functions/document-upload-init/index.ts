@@ -53,6 +53,7 @@ Deno.serve(async request => {
     const storagePath = libraryPath(uploadId, fileName)
     const presigned = await presignPut(config, storagePath, contentType)
     const { error: insertError } = await admin.from('document_uploads').insert({
+      id: uploadId,
       bucket_id: 'r2-library', storage_path: storagePath, sha256,
       mime_type: contentType, size_bytes: sizeBytes, uploaded_by: identity.id,
       status: 'staged',

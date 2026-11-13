@@ -14,13 +14,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function refreshProfile() {
     if (!supabase) return
-    const { data: authData } = await supabase.auth.getUser()
-    if (!authData.user) { setProfile(null); setLoading(false); return }
-    const { data, error: profileError } = await supabase.from('profiles').select('id, full_name, role, is_active').eq('id', authData.user.id).single()
-    if (profileError) { setError('Le profil est introuvable ou inaccessible. Contactez un administrateur.'); setProfile(null); setLoading(false); return }
-    setError(null)
-    setProfile(data as Profile)
-    setLoading(false)
+    try {
+      const { data: authData } = await supabase.auth.getUser()
+      if (!authData.user) { setProfile(null); setLoading(false); return }
+      const { data, error: profileError } = await supabase.from('profiles').select('id, full_name, role, is_active').eq('id', authData.user.id).single()
+      if (profileError) { setError('Le profil est introuvable ou inaccessible. Contactez un administrateur.'); setProfile(null); setLoading(false); return }
+      setError(null)
+      setProfile(data as Profile)
+      setLoading(false)
+    } catch {
+      setError('Connexion au serveur impossible. Vérifiez votre réseau puis rechargez la page.')
+      setProfile(null)
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -35,13 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
       if (!active) return
       setSession(next)
+      // Seule la déconnexion réarme l'état ici : recharger loading=true à chaque
+      // événement (SIGNED_IN dupliqué, TOKEN_REFRESHED) bloquait l'espace sur le
+      // spinner si l'événement arrivait après le chargement du profil.
       if (!next) { setProfile(null); setError(null); setLoading(false) }
-      else setLoading(true)
     })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [])
   useEffect(() => {
-    if (session?.user.id) void refreshProfile()
+    if (session?.user.id) { setLoading(true); void refreshProfile() }
   }, [session?.user.id])
 
   async function signOut() {
