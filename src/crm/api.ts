@@ -7,7 +7,7 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
   if (result.data === null) throw new Error('Aucune réponse Supabase.')
   return result.data
 }
-export function crmChanged() { window.dispatchEvent(new Event('cortexia:crm-changed')) }
+export function crmChanged() { window.dispatchEvent(new Event('ebi:crm-changed')) }
 async function actorId(): Promise<string> {
   const { data, error } = await db().auth.getUser()
   if (error || !data.user) throw new Error('Session expirée. Reconnectez-vous.')
@@ -170,6 +170,6 @@ export async function commitImport(batchId: string, decisions: Record<string, { 
 }
 export async function uploadImportFile(file: File, path: string): Promise<void> {
   const contentType = file.name.toLowerCase().endsWith('.csv') ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  const { error } = await db().storage.from('cortexia-imports').upload(path, file, { upsert: false, contentType })
+  const { error } = await db().storage.from('ebi-imports').upload(path, file, { upsert: false, contentType })
   if (error) throw new Error(error.message)
 }

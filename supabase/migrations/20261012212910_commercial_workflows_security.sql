@@ -260,7 +260,7 @@ begin
   if v_existing is not null then return v_existing; end if;
   if p_storage_path <> 'proposals/' || p_proposal_id::text || '/v1.pdf' or
      p_sha256 !~ '^[a-f0-9]{64}$' then raise exception 'invalid official document path or hash'; end if;
-  if not exists (select 1 from storage.objects where bucket_id = 'cortexia-documents'
+  if not exists (select 1 from storage.objects where bucket_id = 'ebi-documents'
     and name = p_storage_path and metadata->>'mimetype' = 'application/pdf') then
     raise exception 'official PDF not uploaded'; end if;
   insert into public.documents(document_type, proposal_id, offer_template_id,

@@ -1,4 +1,4 @@
-# Modèle de données Cortexia Base
+# Modèle de données — EBI-IMT Business Manager
 
 ```text
 auth.users 1──1 profiles

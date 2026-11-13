@@ -28,15 +28,15 @@ after insert on auth.users
 for each row execute function private.create_pending_profile_for_auth_user();
 
 -- The client checks this before Auth sign-up so an undeployed database cannot
--- create an Auth account without its required Cortexia profile.
-create function public.cortexia_signup_ready()
+-- create an Auth account without its required EBI-IMT profile.
+create function public.ebi_signup_ready()
 returns boolean
 language sql
 stable
 set search_path = ''
 as $$ select true $$;
-revoke all on function public.cortexia_signup_ready() from public, anon, authenticated;
-grant execute on function public.cortexia_signup_ready() to anon, authenticated;
+revoke all on function public.ebi_signup_ready() from public, anon, authenticated;
+grant execute on function public.ebi_signup_ready() to anon, authenticated;
 
 -- An inactive Auth session must not gain Data API access through older
 -- ownership-only policies. Keep profiles readable for the pending user so the
@@ -60,7 +60,7 @@ begin
 end;
 $$;
 
-create policy cortexia_storage_active_profile_gate on storage.objects
+create policy ebi_storage_active_profile_gate on storage.objects
 as restrictive for all to authenticated
-using (bucket_id not in ('cortexia-documents', 'cortexia-imports') or (select private.current_app_role()) is not null)
-with check (bucket_id not in ('cortexia-documents', 'cortexia-imports') or (select private.current_app_role()) is not null);
+using (bucket_id not in ('ebi-documents', 'ebi-imports') or (select private.current_app_role()) is not null)
+with check (bucket_id not in ('ebi-documents', 'ebi-imports') or (select private.current_app_role()) is not null);

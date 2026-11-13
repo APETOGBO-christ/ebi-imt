@@ -26,7 +26,7 @@ for each row execute function public.set_updated_at();
 
 create table public.commercial_settings (
   id boolean primary key default true check (id),
-  company_name text not null default 'Cortexia',
+  company_name text not null default 'EBI-IMT',
   professional_email text,
   professional_phone text,
   postal_address text,
@@ -35,7 +35,7 @@ create table public.commercial_settings (
   updated_by uuid references public.profiles(id),
   updated_at timestamptz not null default now()
 );
-insert into public.commercial_settings(id, company_name) values (true, 'Cortexia');
+insert into public.commercial_settings(id, company_name) values (true, 'EBI-IMT');
 create trigger commercial_settings_set_updated_at before update on public.commercial_settings
 for each row execute function public.set_updated_at();
 
@@ -194,7 +194,7 @@ revoke insert, update, delete on public.documents from authenticated;
 drop policy if exists storage_documents_insert on storage.objects;
 drop policy if exists storage_documents_select on storage.objects;
 create policy storage_documents_select on storage.objects for select to authenticated
-using (bucket_id = 'cortexia-documents' and exists (
+using (bucket_id = 'ebi-documents' and exists (
   select 1 from public.documents d where d.storage_path = name
 ));
 

@@ -41,7 +41,7 @@ for each row execute function public.guard_receipt_insert();
 drop policy if exists storage_documents_update on storage.objects;
 drop policy if exists storage_documents_select on storage.objects;
 create policy storage_documents_select on storage.objects for select to authenticated
-using (bucket_id = 'cortexia-documents' and (
+using (bucket_id = 'ebi-documents' and (
   (select private.can_manage_all()) or owner_id = (select auth.uid()::text) or
   exists (select 1 from public.documents d where d.storage_path = name)
 ));

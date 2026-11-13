@@ -250,7 +250,7 @@ begin
     raise exception 'invalid import file, mapping or row count';
   end if;
   if not exists (select 1 from storage.objects
-    where bucket_id = 'cortexia-imports' and name = p_storage_path
+    where bucket_id = 'ebi-imports' and name = p_storage_path
       and owner_id = v_actor::text) then
     raise exception 'private import file not found';
   end if;

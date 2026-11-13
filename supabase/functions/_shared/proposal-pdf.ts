@@ -62,7 +62,7 @@ function wrap(font: PDFFont, value: string, size: number, available: number): st
 export async function renderProposalPdf(payload: PdfPayload, logoBytes?: Uint8Array, preview = false): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
   doc.setTitle(`${preview ? 'Aperçu - ' : ''}Proposition ${payload.proposal.proposal_number}`)
-  doc.setAuthor(payload.settings.company_name || 'Cortexia')
+  doc.setAuthor(payload.settings.company_name || 'EBI-IMT')
   doc.setSubject('Proposition commerciale')
   doc.setCreationDate(new Date(payload.proposal.created_at))
   doc.setModificationDate(new Date(payload.proposal.created_at))
@@ -75,7 +75,7 @@ export async function renderProposalPdf(payload: PdfPayload, logoBytes?: Uint8Ar
   let page: PDFPage = doc.addPage(PageSizes.A4)
   let y = height - 194
   let sectionNumber = 0
-  const company = text(payload.settings.company_name) || 'Cortexia'
+  const company = text(payload.settings.company_name) || 'EBI-IMT'
 
   async function newPage(first = false) {
     if (!first) page = doc.addPage(PageSizes.A4)
@@ -98,7 +98,7 @@ export async function renderProposalPdf(payload: PdfPayload, logoBytes?: Uint8Ar
       page.drawText(safe(bold, company).slice(0, 35), { x: margin + (logoLeft ? 59 : 0), y: height - 56, size: 17, font: bold, color: rgb(1, 1, 1) })
       const coords = [payload.settings.postal_address, payload.settings.professional_phone, payload.settings.professional_email].filter(Boolean).join('  |  ')
       if (coords) page.drawText(safe(regular, coords).slice(0, 97), { x: margin + (logoLeft ? 59 : 0), y: height - 76, size: 8, font: regular, color: rgb(0.75, 0.84, 0.96) })
-      page.drawText('CORTEXIA  /  DOCUMENT COMMERCIAL', { x: margin, y: height - 109, size: 8, font: bold, color: rgb(0.60, 0.76, 1) })
+      page.drawText('EBI-IMT  /  DOCUMENT COMMERCIAL', { x: margin, y: height - 109, size: 8, font: bold, color: rgb(0.60, 0.76, 1) })
       page.drawText('Proposition', { x: margin - 1, y: height - 144, size: 27, font: bold, color: rgb(1, 1, 1) })
       page.drawText(safe(bold, payload.proposal.proposal_number), { x: margin + 220, y: height - 139, size: 12, font: bold, color: rgb(1, 1, 1) })
       page.drawText(safe(regular, `Émise le ${date(payload.proposal.created_at)}  /  Valable jusqu'au ${date(payload.proposal.expires_at)}`), { x: margin, y: height - 161, size: 8.5, font: regular, color: rgb(0.82, 0.88, 0.98) })

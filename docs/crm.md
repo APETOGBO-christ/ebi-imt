@@ -1,4 +1,4 @@
-# CRM Cortexia Base — Prompt 3
+# CRM — module Prospects (EBI-IMT Business Manager)
 
 ## Modules livrés dans le code
 

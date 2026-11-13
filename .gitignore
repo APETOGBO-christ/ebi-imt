@@ -6,3 +6,7 @@ dist/
 *.tsbuildinfo
 output/
 tmp/
+
+supabase/.temp/
+supabase/branches/
+*.log

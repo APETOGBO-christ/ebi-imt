@@ -47,7 +47,7 @@ export function PaymentsPage({ pendingOnly = false }: { pendingOnly?: boolean })
         protectExcelText(item.transaction_reference ?? ''), when(item.declared_at),
         item.verified_at ? when(item.verified_at) : '', protectExcelText(item.verification_source ?? '')])
       await writeExcelFile([{ sheet: 'Paiements autorisés', data: [['Commande','Montant déclaré','Moyen','Statut','Référence déclarée','Date déclaration','Date vérification','Source'], ...rows] }])
-        .toFile(`paiements-cortexia-${new Date().toISOString().slice(0, 10)}.xlsx`)
+        .toFile(`paiements-ebi-${new Date().toISOString().slice(0, 10)}.xlsx`)
     } catch (e) { setError(e instanceof Error ? e.message : 'Export impossible.') }
   }
   if (pendingOnly && !canVerify && !loading) return <div className="crm-page"><div className="crm-alert">Vérification réservée aux personnes habilitées.</div></div>

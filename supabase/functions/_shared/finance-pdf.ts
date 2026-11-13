@@ -46,7 +46,7 @@ export async function renderFinancePdf(payload: FinancePdfPayload, logoBytes?: U
     throw new Error('Un reçu exige un encaissement confirmé.')
   const doc = await PDFDocument.create()
   doc.setTitle(`${payload.kind === 'receipt' ? 'Reçu de paiement' : 'Instructions de paiement'} ${payload.document_number}`)
-  doc.setAuthor(value(object(payload.snapshot.company).company_name) || 'Cortexia')
+  doc.setAuthor(value(object(payload.snapshot.company).company_name) || 'EBI-IMT')
   doc.setCreationDate(new Date(payload.created_at))
   doc.setModificationDate(new Date(payload.created_at))
   const regular = await doc.embedFont(StandardFonts.Helvetica)
@@ -60,7 +60,7 @@ export async function renderFinancePdf(payload: FinancePdfPayload, logoBytes?: U
   const customer = object(offer.client)
   const payment = object(payload.snapshot.payment)
   const account = object(payload.snapshot.account)
-  const companyName = value(company.company_name) || 'Cortexia'
+  const companyName = value(company.company_name) || 'EBI-IMT'
   let page: PDFPage = doc.addPage(PageSizes.A4)
   let y = height - 195
 
@@ -84,7 +84,7 @@ export async function renderFinancePdf(payload: FinancePdfPayload, logoBytes?: U
       page.drawText(safe(bold, companyName).slice(0, 37), { x: nameX, y: height - 55, size: 18, font: bold, color: WHITE })
       const contact = [value(company.postal_address), value(company.professional_phone), value(company.professional_email)].filter(Boolean).join('  |  ')
       if (contact) page.drawText(safe(regular, contact).slice(0, 95), { x: nameX, y: height - 75, size: 8, font: regular, color: rgb(0.77, 0.85, 0.97) })
-      page.drawText('CORTEXIA  /  DOCUMENT FINANCIER', { x: margin, y: height - 108, size: 8, font: bold, color: rgb(0.60, 0.76, 1) })
+      page.drawText('EBI-IMT  /  DOCUMENT FINANCIER', { x: margin, y: height - 108, size: 8, font: bold, color: rgb(0.60, 0.76, 1) })
       page.drawText(payload.kind === 'receipt' ? 'Reçu de paiement' : 'Instructions de paiement', {
         x: margin - 1, y: height - 143, size: payload.kind === 'receipt' ? 24 : 21,
         font: bold, color: WHITE,
@@ -163,7 +163,7 @@ export async function renderFinancePdf(payload: FinancePdfPayload, logoBytes?: U
       await line(value(item.client_instructions), { size: 9, color: MUTED, gap: 8 })
     }
     await section('Après votre paiement')
-    await line('Transmettez votre référence de transaction à Cortexia. Cette fiche fournit des instructions ; elle ne confirme aucun encaissement et ne constitue pas un reçu.', { size: 9, gap: 5 })
+    await line('Transmettez votre référence de transaction à EBI-IMT. Cette fiche fournit des instructions ; elle ne confirme aucun encaissement et ne constitue pas un reçu.', { size: 9, gap: 5 })
     if (company.professional_email) await line(`Contact : ${value(company.professional_email)}`, { size: 9 })
   }
   const pages = doc.getPages()

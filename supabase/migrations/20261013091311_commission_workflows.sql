@@ -175,7 +175,7 @@ begin
   if p_amount>least(v_position.approved_xof,v_position.acquired_xof)-v_paid then
     raise exception 'payout exceeds currently payable commission'; end if;
   if p_proof is not null and (p_proof not like 'field/'||v_actor::text||'/%' or
-    not exists(select 1 from storage.objects where bucket_id='cortexia-field-proofs' and name=p_proof))
+    not exists(select 1 from storage.objects where bucket_id='ebi-field-proofs' and name=p_proof))
     then raise exception 'private payout proof required'; end if;
   insert into public.sales_commission_payouts(position_id,amount_xof,paid_at,method,external_reference,
     proof_path,recorded_by)

@@ -99,7 +99,7 @@ create index financial_ledger_order_idx on public.financial_ledger(order_id, rec
 
 create table public.finance_settings (
   id boolean primary key default true check (id),
-  receipt_prefix text not null default 'CTX-REC' check (receipt_prefix ~ '^[A-Z0-9-]{3,20}$'),
+  receipt_prefix text not null default 'EBI-REC' check (receipt_prefix ~ '^[A-Z0-9-]{3,20}$'),
   updated_by uuid references public.profiles(id),
   updated_at timestamptz not null default now()
 );
@@ -136,7 +136,7 @@ create index finance_document_jobs_pending_idx on public.finance_document_jobs(s
 create index finance_document_jobs_order_idx on public.finance_document_jobs(order_id, created_at desc);
 
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-values ('cortexia-payment-proofs', 'cortexia-payment-proofs', false, 5242880,
+values ('ebi-payment-proofs', 'ebi-payment-proofs', false, 5242880,
   array['image/jpeg','image/png','application/pdf']::text[])
 on conflict(id) do update set public = false, file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
@@ -174,12 +174,12 @@ create policy finance_document_jobs_select on public.finance_document_jobs for s
 using (exists (select 1 from public.orders o where o.id = order_id));
 
 create policy payment_proofs_insert on storage.objects for insert to authenticated
-with check (bucket_id = 'cortexia-payment-proofs' and exists (
+with check (bucket_id = 'ebi-payment-proofs' and exists (
   select 1 from public.payments p where name like 'payments/' || p.id::text || '/%'
     and p.created_by = (select auth.uid()) and p.status = 'pending'
 ));
 create policy payment_proofs_select on storage.objects for select to authenticated
-using (bucket_id = 'cortexia-payment-proofs' and exists (
+using (bucket_id = 'ebi-payment-proofs' and exists (
   select 1 from public.payments p where p.proof_path = name
 ));
 

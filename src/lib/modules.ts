@@ -1,10 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
-import { LayoutDashboard, UsersRound, BriefcaseBusiness, CalendarDays, FileText, FileCheck2, ShoppingBag, WalletCards, ReceiptText, BadgePercent, MonitorPlay, FileSpreadsheet, ChartNoAxesCombined, Settings2 } from 'lucide-react'
+import { LayoutDashboard, UsersRound, BriefcaseBusiness, CalendarDays, FileText, FileCheck2, ShoppingBag, WalletCards, ReceiptText, BadgePercent, MonitorPlay, FileSpreadsheet, ChartNoAxesCombined, Settings2, Building2, FolderOpen } from 'lucide-react'
 
-export type ModuleId = 'dashboard' | 'prospects' | 'sales' | 'activities' | 'offers' | 'proposals' | 'orders' | 'payments' | 'expenses' | 'commissions' | 'production' | 'imports' | 'reports' | 'settings'
+export type ModuleId = 'dashboard' | 'societes' | 'prospects' | 'sales' | 'activities' | 'offers' | 'proposals' | 'orders' | 'payments' | 'expenses' | 'commissions' | 'production' | 'imports' | 'reports' | 'bibliotheque' | 'settings'
 export interface Module { id: ModuleId; label: string; path: string; icon: LucideIcon; description: string }
 export const modules: Module[] = [
   { id: 'dashboard', label: 'Vue d’ensemble', path: '/', icon: LayoutDashboard, description: 'Le parcours commercial en un regard.' },
+  { id: 'societes', label: 'Sociétés', path: '/societes', icon: Building2, description: 'Le référentiel unique : clients, fournisseurs et partenaires.' },
   { id: 'prospects', label: 'Prospects', path: '/prospects', icon: UsersRound, description: 'Suivi des entreprises et des opportunités.' },
   { id: 'sales', label: 'Commerciaux', path: '/commerciaux', icon: BriefcaseBusiness, description: 'Équipe commerciale et attributions.' },
   { id: 'activities', label: 'Activités et rendez-vous', path: '/activites', icon: CalendarDays, description: 'Historique des échanges et prochaines rencontres.' },
@@ -17,6 +18,7 @@ export const modules: Module[] = [
   { id: 'production', label: 'Production et livraison', path: '/production', icon: MonitorPlay, description: 'Avancement des sites en création.' },
   { id: 'imports', label: 'Imports Excel', path: '/imports', icon: FileSpreadsheet, description: 'Préparation des imports et détection de conflits.' },
   { id: 'reports', label: 'Rapports', path: '/rapports', icon: ChartNoAxesCombined, description: 'Analyses commerciales.' },
+  { id: 'bibliotheque', label: 'Bibliothèque', path: '/bibliotheque', icon: FolderOpen, description: 'Tous les documents de l’entreprise, versionnés et vérifiés.' },
   { id: 'settings', label: 'Paramètres', path: '/parametres', icon: Settings2, description: 'Configuration du système.' },
 ]
 

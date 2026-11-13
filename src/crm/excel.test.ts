@@ -13,7 +13,7 @@ describe('correspondance et préparation des imports', () => {
     expect(() => rowsToLeads(parsed, { Entreprise: 'company_name', Ville: 'company_name' })).toThrow('une seule colonne')
   })
   it('ne traite pas la similarité de nom comme preuve dans le navigateur', () => {
-    const parsed = { headers: ['Company name'], rows: [['Cortexia SARL'], ['Cortexia']] }
+    const parsed = { headers: ['Company name'], rows: [['EBI-IMT SARL'], ['EBI-IMT']] }
     expect(rowsToLeads(parsed, { 'Company name': 'company_name' })).toHaveLength(2)
   })
 })
@@ -23,7 +23,7 @@ describe('export sécurisé', () => {
     expect(protectExcelText(value)).toBe(`'${value}`)
   })
   it('laisse les valeurs ordinaires intactes', () => {
-    expect(protectExcelText('Entreprise Cortexia')).toBe('Entreprise Cortexia')
+    expect(protectExcelText('Entreprise EBI-IMT')).toBe('Entreprise EBI-IMT')
   })
 })
 
@@ -33,12 +33,12 @@ describe('choix de feuille Excel', () => {
     const { default: readExcelFile } = await import('read-excel-file/node')
     const buffer = await writeExcelFile([
       { sheet: 'Instructions', data: [['Utilisez la feuille Prospects']] },
-      { sheet: 'Prospects', data: [['Entreprise', 'Ville'], ['Cortexia', 'Lomé']] },
+      { sheet: 'Prospects', data: [['Entreprise', 'Ville'], ['EBI-IMT', 'Lomé']] },
     ]).toBuffer()
     const sheets = await readExcelFile(buffer)
     const workbook: ParsedWorkbook = { format: 'xlsx', sheets: sheets.map(sheet => ({ name: sheet.sheet, rows: sheet.data as ParsedWorkbook['sheets'][number]['rows'] })) }
     expect(workbook.sheets.map(sheet => sheet.name)).toEqual(['Instructions', 'Prospects'])
-    expect(selectImportSheet(workbook, 'Prospects')).toEqual({ headers: ['Entreprise', 'Ville'], rows: [['Cortexia', 'Lomé']] })
+    expect(selectImportSheet(workbook, 'Prospects')).toEqual({ headers: ['Entreprise', 'Ville'], rows: [['EBI-IMT', 'Lomé']] })
     expect(() => selectImportSheet(workbook, 'Instructions')).toThrow('au moins un prospect')
   })
 

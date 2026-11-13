@@ -86,7 +86,7 @@ export async function getProposalDocuments(id: string): Promise<ProposalDocument
   fail(error); return data as ProposalDocument[]
 }
 export async function signedDocumentUrl(path: string): Promise<string> {
-  const { data, error } = await db().storage.from('cortexia-documents').createSignedUrl(path, 60)
+  const { data, error } = await db().storage.from('ebi-documents').createSignedUrl(path, 60)
   fail(error); if (!data?.signedUrl) throw new Error('Lien de téléchargement indisponible.')
   return data.signedUrl
 }

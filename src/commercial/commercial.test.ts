@@ -3,7 +3,7 @@ import { PDFDocument } from 'pdf-lib'
 import { renderProposalPdf, type PdfPayload } from '../../supabase/functions/_shared/proposal-pdf'
 
 const fixture: PdfPayload = {
-  settings: { company_name: 'Cortexia', professional_email: null,
+  settings: { company_name: 'EBI-IMT', professional_email: null,
     professional_phone: null, postal_address: null, legal_mentions: null, logo_storage_path: null },
   proposal: { proposal_number: 'MAQUETTE-NON-EMISE', created_at: '2026-10-12T12:00:00Z',
     expires_at: '2026-11-12T12:00:00Z', offer_version: 1,
@@ -24,10 +24,10 @@ describe('PDF commercial A4', () => {
     expect(doc.getPageCount()).toBe(1)
     expect(Math.round(doc.getPage(0).getWidth())).toBe(595)
     expect(Math.round(doc.getPage(0).getHeight())).toBe(842)
-    if (process.env.CORTEXIA_PDF_QA === '1') {
+    if (process.env.EBI_PDF_QA === '1') {
       const { mkdir, writeFile } = await import('node:fs/promises')
       await mkdir('output/pdf', { recursive: true })
-      await writeFile('output/pdf/cortexia-proposition-controle.pdf', bytes)
+      await writeFile('output/pdf/ebi-proposition-controle.pdf', bytes)
     }
   })
   it('pagine les listes longues sans perdre les sections', async () => {
@@ -36,10 +36,10 @@ describe('PDF commercial A4', () => {
     const bytes = await renderProposalPdf(long, undefined, true)
     const doc = await PDFDocument.load(bytes)
     expect(doc.getPageCount()).toBeGreaterThan(1)
-    if (process.env.CORTEXIA_PDF_QA === '1') {
+    if (process.env.EBI_PDF_QA === '1') {
       const { mkdir, writeFile } = await import('node:fs/promises')
       await mkdir('tmp/pdfs', { recursive: true })
-      await writeFile('tmp/pdfs/cortexia-pagination-controle.pdf', bytes)
+      await writeFile('tmp/pdfs/ebi-pagination-controle.pdf', bytes)
     }
   })
   it('reproduit les mêmes octets pour la même proposition', async () => {

@@ -1,24 +1,24 @@
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('cortexia-documents', 'cortexia-documents', false, 10485760, array['application/pdf']::text[]),
-  ('cortexia-imports', 'cortexia-imports', false, 52428800, array['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']::text[])
+  ('ebi-documents', 'ebi-documents', false, 10485760, array['application/pdf']::text[]),
+  ('ebi-imports', 'ebi-imports', false, 52428800, array['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']::text[])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 create policy storage_documents_select on storage.objects for select to authenticated
-using (bucket_id = 'cortexia-documents' and ((select private.can_manage_all()) or owner_id = (select auth.uid()::text)));
+using (bucket_id = 'ebi-documents' and ((select private.can_manage_all()) or owner_id = (select auth.uid()::text)));
 create policy storage_documents_insert on storage.objects for insert to authenticated
-with check (bucket_id = 'cortexia-documents' and owner_id = (select auth.uid()::text));
+with check (bucket_id = 'ebi-documents' and owner_id = (select auth.uid()::text));
 create policy storage_documents_update on storage.objects for update to authenticated
-using (bucket_id = 'cortexia-documents' and owner_id = (select auth.uid()::text))
-with check (bucket_id = 'cortexia-documents' and owner_id = (select auth.uid()::text));
+using (bucket_id = 'ebi-documents' and owner_id = (select auth.uid()::text))
+with check (bucket_id = 'ebi-documents' and owner_id = (select auth.uid()::text));
 
 create policy storage_imports_select on storage.objects for select to authenticated
-using (bucket_id = 'cortexia-imports' and ((select private.can_manage_all()) or owner_id = (select auth.uid()::text)));
+using (bucket_id = 'ebi-imports' and ((select private.can_manage_all()) or owner_id = (select auth.uid()::text)));
 create policy storage_imports_insert on storage.objects for insert to authenticated
-with check (bucket_id = 'cortexia-imports' and owner_id = (select auth.uid()::text));
+with check (bucket_id = 'ebi-imports' and owner_id = (select auth.uid()::text));
 create policy storage_imports_update on storage.objects for update to authenticated
-using (bucket_id = 'cortexia-imports' and owner_id = (select auth.uid()::text))
-with check (bucket_id = 'cortexia-imports' and owner_id = (select auth.uid()::text));
+using (bucket_id = 'ebi-imports' and owner_id = (select auth.uid()::text))
+with check (bucket_id = 'ebi-imports' and owner_id = (select auth.uid()::text));
 
 revoke all on storage.objects from anon;
 

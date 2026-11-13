@@ -28,19 +28,19 @@ Deno.serve(async request => {
     const admin = createClient(url, secret, { auth: { persistSession: false } })
     let logo: Uint8Array | undefined
     if (payload.settings?.logo_storage_path) {
-      const { data } = await admin.storage.from('cortexia-documents').download(payload.settings.logo_storage_path)
+      const { data } = await admin.storage.from('ebi-documents').download(payload.settings.logo_storage_path)
       if (data) logo = new Uint8Array(await data.arrayBuffer())
     }
     const pdf = await renderProposalPdf(payload as PdfPayload, logo)
     const hashBytes = await crypto.subtle.digest('SHA-256', pdf)
     const hash = Array.from(new Uint8Array(hashBytes), value => value.toString(16).padStart(2, '0')).join('')
     const path = `proposals/${body.proposal_id}/v1.pdf`
-    const { error: uploadError } = await admin.storage.from('cortexia-documents').upload(path, pdf, {
+    const { error: uploadError } = await admin.storage.from('ebi-documents').upload(path, pdf, {
       contentType: 'application/pdf', upsert: false, cacheControl: '3600',
     })
     let canonicalHash = hash
     if (uploadError) {
-      const { data: existing, error: downloadError } = await admin.storage.from('cortexia-documents').download(path)
+      const { data: existing, error: downloadError } = await admin.storage.from('ebi-documents').download(path)
       if (downloadError || !existing) return response(409, { error: uploadError.message })
       const bytes = new Uint8Array(await existing.arrayBuffer())
       if (bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) return response(409, { error: 'Fichier officiel invalide.' })

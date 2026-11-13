@@ -85,12 +85,12 @@ export async function uploadFieldProof(kind:'advance'|'expense'|'restitution'|'c
   check(authError); if (!session.user) throw new Error('Session expirée.')
   const ext=file.type==='application/pdf'?'pdf':file.type==='image/png'?'png':'jpg'
   const path=`field/${session.user.id}/${kind}/${id}/${crypto.randomUUID()}.${ext}`
-  const { error } = await db().storage.from('cortexia-field-proofs').upload(path,file,{upsert:false,contentType:file.type})
+  const { error } = await db().storage.from('ebi-field-proofs').upload(path,file,{upsert:false,contentType:file.type})
   check(error)
   if (kind!=='commission_payout') await call<void>('field_attach_proof',{p_kind:kind,p_id:id,p_path:path})
   return path
 }
 export async function fieldProofUrl(path:string):Promise<string> {
-  const { data,error } = await db().storage.from('cortexia-field-proofs').createSignedUrl(path,60)
+  const { data,error } = await db().storage.from('ebi-field-proofs').createSignedUrl(path,60)
   check(error); if (!data?.signedUrl) throw new Error('Justificatif inaccessible.'); return data.signedUrl
 }

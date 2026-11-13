@@ -103,7 +103,7 @@ export function ReportsPage() {
         row.proposalsSent,row.orders,row.collected,row.communication,row.transport,row.other,row.acquiredCommissions,
         row.paidCommissions,row.cac??'Données insuffisantes'])
       await writeExcelFile([{sheet:'Performance autorisée',data:[header,...data]}])
-        .toFile(`cortexia-performance-${from}-${to}.xlsx`)
+        .toFile(`ebi-performance-${from}-${to}.xlsx`)
     } catch(e){setError(e instanceof Error?e.message:'Export impossible.')} }
   return <div className="crm-page field-page"><Link className="crm-back" to="/depenses"><ArrowLeft size={15}/> Dépenses</Link>
     <div className="crm-page-head"><div><span className="section-kicker">ANALYSE / DONNÉES AUTORISÉES</span><h1>Performance commerciale</h1><p>Activité, ventes, encaissements et coûts sont présentés séparément.</p></div>{profile?.role!=='sales_rep'&&<Button variant="secondary" onClick={()=>void exportReport()}><Download size={15}/> Exporter Excel</Button>}</div>

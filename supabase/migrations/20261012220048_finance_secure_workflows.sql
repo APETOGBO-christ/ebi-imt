@@ -163,7 +163,7 @@ begin
     not (v_payment.created_by = v_actor or private.current_app_role() = 'admin') then
     raise exception 'pending declaration unavailable'; end if;
   if p_path not like 'payments/' || p_payment_id::text || '/%' or
-    not exists (select 1 from storage.objects where bucket_id = 'cortexia-payment-proofs' and name = p_path)
+    not exists (select 1 from storage.objects where bucket_id = 'ebi-payment-proofs' and name = p_path)
     then raise exception 'private proof object required'; end if;
   update public.payments set proof_path = p_path where id = p_payment_id;
   insert into public.payment_events(payment_id, actor_id, event_type)
@@ -288,7 +288,7 @@ begin
   from public.payment_accounts a where a.is_active;
   if v_accounts is null then raise exception 'configure an official active account first'; end if;
   select * into v_settings from public.commercial_settings where id = true;
-  v_number := 'CTX-PAY-' || pg_catalog.to_char(now(), 'YYYY') || '-' ||
+  v_number := 'EBI-PAY-' || pg_catalog.to_char(now(), 'YYYY') || '-' ||
     pg_catalog.lpad(pg_catalog.nextval('public.finance_instruction_number_seq'::regclass)::text, 6, '0');
   insert into public.finance_document_jobs(kind, order_id, installment_id, document_number,
     snapshot, created_by)
@@ -365,7 +365,7 @@ begin
   if v_job.status <> 'processing' then raise exception 'document request not claimed'; end if;
   if p_path <> 'finance/' || v_job.kind || '/' || p_id::text || '.pdf' or
     p_sha256 !~ '^[a-f0-9]{64}$' then raise exception 'invalid immutable document path or hash'; end if;
-  if not exists (select 1 from storage.objects where bucket_id = 'cortexia-documents'
+  if not exists (select 1 from storage.objects where bucket_id = 'ebi-documents'
     and name = p_path and metadata->>'mimetype' = 'application/pdf') then
     raise exception 'private PDF not uploaded'; end if;
   if v_job.kind = 'receipt' then

@@ -37,18 +37,18 @@ Deno.serve(async request => {
     let logo: Uint8Array | undefined
     const logoPath = (pdfPayload.snapshot.company as Record<string, unknown> | undefined)?.logo_storage_path
     if (logoPath) {
-      const { data } = await admin.storage.from('cortexia-documents').download(String(logoPath))
+      const { data } = await admin.storage.from('ebi-documents').download(String(logoPath))
       if (data) logo = new Uint8Array(await data.arrayBuffer())
     }
     const pdf = await renderFinancePdf(pdfPayload, logo)
     const hashBytes = await crypto.subtle.digest('SHA-256', pdf)
     const hash = Array.from(new Uint8Array(hashBytes), value => value.toString(16).padStart(2, '0')).join('')
     const path = `finance/${claimed.kind}/${jobId}.pdf`
-    const { error: uploadError } = await admin.storage.from('cortexia-documents').upload(path, pdf, {
+    const { error: uploadError } = await admin.storage.from('ebi-documents').upload(path, pdf, {
       contentType: 'application/pdf', upsert: false, cacheControl: '3600',
     })
     if (uploadError) {
-      const { data: existing, error: downloadError } = await admin.storage.from('cortexia-documents').download(path)
+      const { data: existing, error: downloadError } = await admin.storage.from('ebi-documents').download(path)
       if (downloadError || !existing) throw new Error(uploadError.message)
       const bytes = new Uint8Array(await existing.arrayBuffer())
       const existingHash = await crypto.subtle.digest('SHA-256', bytes)

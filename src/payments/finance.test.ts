@@ -4,10 +4,10 @@ import { ledgerBalance } from './types'
 import { renderFinancePdf, type FinancePdfPayload } from '../../supabase/functions/_shared/finance-pdf'
 
 const base = {
-  document_number: 'CTX-R-2026-000001',
+  document_number: 'EBI-R-2026-000001',
   created_at: '2026-10-12T17:00:00.000Z',
   snapshot: {
-    company: { company_name: 'Cortexia', professional_email: 'contact@example.test' },
+    company: { company_name: 'EBI-IMT', professional_email: 'contact@example.test' },
     order: { order_number: 'CMD-2026-001', amount_xof: 240000,
       offer_snapshot: { name: 'Prestation exemple', client: { company_name: 'Client exemple' } } },
     payment: { status: 'confirmed', amount_xof: 120000, method: 'merchant_account',
@@ -16,7 +16,7 @@ const base = {
     collected_after_xof: 120000, balance_after_xof: 120000,
     amount_due_xof: 120000,
     accounts: [{ method: 'merchant_account', provider_name: 'Opérateur exemple',
-      holder_name: 'Cortexia', account_identifier: '00000000', client_instructions: 'Indiquer la référence.' }],
+      holder_name: 'EBI-IMT', account_identifier: '00000000', client_instructions: 'Indiquer la référence.' }],
   },
 }
 
@@ -49,12 +49,12 @@ describe('documents financiers', () => {
     const document = await PDFDocument.load(bytes)
     expect(document.getPageCount()).toBeGreaterThanOrEqual(1)
     expect(document.getPage(0).getSize()).toMatchObject({ width: 595.28, height: 841.89 })
-    if (process.env.CORTEXIA_PDF_QA === '1') {
+    if (process.env.EBI_PDF_QA === '1') {
       const { mkdir, writeFile } = await import('node:fs/promises')
       const path = await import('node:path')
       const directory = path.resolve('output/pdf')
       await mkdir(directory, { recursive: true })
-      await writeFile(path.join(directory, kind === 'receipt' ? 'cortexia-recu-controle.pdf' : 'cortexia-instructions-controle.pdf'), bytes)
+      await writeFile(path.join(directory, kind === 'receipt' ? 'ebi-recu-controle.pdf' : 'ebi-instructions-controle.pdf'), bytes)
     }
   })
   it('reproduit exactement le PDF lors d’une reprise idempotente', async () => {

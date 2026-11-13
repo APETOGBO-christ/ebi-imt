@@ -43,7 +43,7 @@ export function protectExcelText(value: string): string {
 export function rowsToLeads(parsed: ParsedFile, mapping: Record<string, string>): LeadInput[] {
   if (!Object.values(mapping).includes('company_name')) throw new Error('Associez une colonne au nom de l’entreprise.')
   const targets = Object.values(mapping).filter(Boolean)
-  if (new Set(targets).size !== targets.length) throw new Error('Chaque champ Cortexia doit correspondre à une seule colonne.')
+  if (new Set(targets).size !== targets.length) throw new Error('Chaque champ EBI-IMT doit correspondre à une seule colonne.')
   return parsed.rows.map(row => {
     const data: Record<string, string> = {}
     for (const [index, header] of parsed.headers.entries()) {
@@ -91,7 +91,7 @@ export function selectImportSheet(workbook: ParsedWorkbook, sheetName: string): 
 
 export async function sha256(file: Blob, sheetName?: string): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const suffix = sheetName ? new TextEncoder().encode(`\u0000cortexia-sheet:${sheetName}`) : new Uint8Array(0)
+  const suffix = sheetName ? new TextEncoder().encode(`\u0000ebi-sheet:${sheetName}`) : new Uint8Array(0)
   const input = new Uint8Array(bytes.length + suffix.length)
   input.set(bytes)
   input.set(suffix, bytes.length)
@@ -108,25 +108,25 @@ export async function downloadTemplate() {
   await writeSheets([
     { sheet: 'Prospects', data: [headers] },
     { sheet: 'Instructions', data: [
-      ['Cortexia Base : modèle de prospection'],
+      ['EBI-IMT : modèle de prospection'],
       ['Seul le nom de l’entreprise (*) est obligatoire. Une ligne représente un prospect.'],
       ['Renseignez un numéro avec son indicatif international si nécessaire. Les numéros togolais à 8 chiffres reçoivent +228.'],
       ['N’ajoutez aucune donnée réelle dans un modèle destiné à être partagé.'],
       ['L’import affiche toujours un aperçu et demande une validation avant l’écriture.'],
     ] },
-  ], 'modele-prospects-cortexia.xlsx')
+  ], 'modele-prospects-ebi.xlsx')
 }
 export async function exportLeads(leads: Lead[]) {
   const headers = ['Entreprise', 'Secteur', 'Contact', 'Fonction', 'Téléphone', 'WhatsApp', 'Email', 'Ville', 'Quartier', 'Adresse', 'Site web', 'Besoin', 'Offre envisagée', 'Commercial', 'Statut', 'Priorité', 'Source', 'Créé le', 'Prochaine relance', 'Notes']
   const safe = (value: string | null | undefined) => protectExcelText(value ?? '')
   const rows = leads.map(lead => [safe(lead.company_name), safe(lead.industry), safe(lead.contact?.full_name), safe(lead.contact?.job_title), safe(lead.contact?.phone || lead.phone), safe(lead.contact?.whatsapp), safe(lead.contact?.email || lead.company_email), safe(lead.city), safe(lead.neighborhood), safe(lead.address), safe(lead.website), safe(lead.identified_need), safe(lead.interested_offer), safe(lead.assigned_name), lead.status, lead.priority, safe(lead.source), new Date(lead.created_at), lead.next_follow_up_at ? new Date(lead.next_follow_up_at) : null, safe(lead.notes)])
-  await writeSheets([{ sheet: 'Prospects', data: [headers, ...rows] }], `prospects-cortexia-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  await writeSheets([{ sheet: 'Prospects', data: [headers, ...rows] }], `prospects-ebi-${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 export async function exportActivities(activities: Activity[]) {
   const rows = activities.map(item => [item.lead_id, item.activity_type, protectExcelText(item.channel ?? ''), protectExcelText(item.outcome ?? ''), protectExcelText(item.body ?? ''), new Date(item.occurred_at)])
-  await writeSheets([{ sheet: 'Activités', data: [['Prospect ID', 'Type', 'Canal', 'Résultat', 'Note', 'Date'], ...rows] }], 'activites-cortexia.xlsx')
+  await writeSheets([{ sheet: 'Activités', data: [['Prospect ID', 'Type', 'Canal', 'Résultat', 'Note', 'Date'], ...rows] }], 'activites-ebi.xlsx')
 }
 export async function exportFollowUps(followUps: FollowUp[]) {
   const rows = followUps.map(item => [item.lead_id, item.status, protectExcelText(item.reason), protectExcelText(item.notes ?? ''), new Date(item.due_at)])
-  await writeSheets([{ sheet: 'Relances', data: [['Prospect ID', 'Statut', 'Motif', 'Note', 'Échéance'], ...rows] }], 'relances-cortexia.xlsx')
+  await writeSheets([{ sheet: 'Relances', data: [['Prospect ID', 'Statut', 'Motif', 'Note', 'Échéance'], ...rows] }], 'relances-ebi.xlsx')
 }

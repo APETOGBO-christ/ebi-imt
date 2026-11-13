@@ -159,7 +159,7 @@ create table public.field_finance_events (
 create index field_finance_events_entity_idx on public.field_finance_events(entity_kind,entity_id,created_at desc);
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-values('cortexia-field-proofs','cortexia-field-proofs',false,5242880,
+values('ebi-field-proofs','ebi-field-proofs',false,5242880,
   array['application/pdf','image/jpeg','image/png']::text[])
 on conflict(id) do update set public = false, file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
@@ -195,9 +195,9 @@ using (private.current_app_role() in ('admin','sales_manager') or
   exists(select 1 from public.field_expenses e where e.id = entity_id and e.sales_rep_id = (select auth.uid())));
 
 create policy field_proof_insert on storage.objects for insert to authenticated
-with check (bucket_id = 'cortexia-field-proofs' and name like 'field/' || (select auth.uid())::text || '/%');
+with check (bucket_id = 'ebi-field-proofs' and name like 'field/' || (select auth.uid())::text || '/%');
 create policy field_proof_select on storage.objects for select to authenticated
-using (bucket_id = 'cortexia-field-proofs' and (
+using (bucket_id = 'ebi-field-proofs' and (
   private.current_app_role() = 'admin' or
   (private.current_app_role() = 'sales_manager' and exists
     (select 1 from public.field_budget_permissions p where p.user_id=(select auth.uid()) and p.enabled)) or

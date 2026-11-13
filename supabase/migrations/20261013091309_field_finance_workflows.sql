@@ -145,7 +145,7 @@ returns void language plpgsql security definer set search_path = '' as $$
 declare v_actor uuid := private.crm_actor(false); v_owner uuid;
 begin
   if p_path not like 'field/'||v_actor::text||'/%' or not exists
-    (select 1 from storage.objects where bucket_id='cortexia-field-proofs' and name=p_path)
+    (select 1 from storage.objects where bucket_id='ebi-field-proofs' and name=p_path)
     then raise exception 'private proof uploaded by actor required'; end if;
   if p_kind='advance' then
     if not private.field_can_manage() then raise exception 'budget authority required'; end if;

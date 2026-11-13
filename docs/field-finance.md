@@ -6,14 +6,14 @@
 - Une dotation normale a un index unique par commercial. Une seconde dotation exige une exception liée à la première, motivée et créée par un administrateur.
 - Le gestionnaire habilité décide chaque budget de transport ultérieur : bénéficiaire, montant explicite, dates, motif, zone, auteur et date de décision. Aucune cadence ni valeur de transport automatique n'existe.
 - Le budget autorisé, la demande d'avance, son approbation et sa remise effective sont des états distincts. La remise exige une preuve privée, un moyen et une référence. Elle n'est consignée qu'une fois.
-- Une recharge ou un trajet financé par l'avance est une utilisation de celle-ci, pas un second transfert. Les frais personnels approuvés deviennent remboursables ; leur approbation ne signifie pas paiement. Les frais payés directement par Cortexia restent distincts.
+- Une recharge ou un trajet financé par l'avance est une utilisation de celle-ci, pas un second transfert. Les frais personnels approuvés deviennent remboursables ; leur approbation ne signifie pas paiement. Les frais payés directement par EBI-IMT restent distincts.
 - Une restitution déclarée n'est déduite du solde qu'après vérification sur un canal réel avec preuve et référence. L'avance ne peut être clôturée que si dépenses approuvées et restitutions vérifiées couvrent exactement le montant remis, sans dossier en attente.
 
 ## Droits et stockage
 
 `sales_manager` représente le responsable commercial, mais seul un manager inscrit dans `field_budget_permissions` avec `enabled = true` peut décider et valider les fonds de terrain. L'administrateur accorde ce droit nominativement. Le commercial voit ses propres données et déclare ses dépenses ; il ne peut ni créer son budget ni s'approuver lui-même. Les nouvelles tables sont RLS, accessibles en écriture uniquement par RPC vérifiant le rôle et l'état. Les tables historiques `expenses` et `commissions` restent lisibles mais ne peuvent plus recevoir d'écritures directes du client.
 
-Les preuves sont dans le bucket privé `cortexia-field-proofs` (PDF, JPEG ou PNG, 5 Mo maximum). Les URL signées expirent après 60 secondes. La clé service n'est jamais utilisée dans le navigateur.
+Les preuves sont dans le bucket privé `ebi-field-proofs` (PDF, JPEG ou PNG, 5 Mo maximum). Les URL signées expirent après 60 secondes. La clé service n'est jamais utilisée dans le navigateur.
 
 ## Commissions
 

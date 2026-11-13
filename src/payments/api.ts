@@ -29,7 +29,7 @@ export async function setReceiptPrefix(prefix: string) {
 }
 export async function getReceiptPrefix(): Promise<string> {
   const { data, error } = await db().from('finance_settings').select('receipt_prefix').eq('id', true).single()
-  fail(error); return data?.receipt_prefix ?? 'CTX-REC'
+  fail(error); return data?.receipt_prefix ?? 'EBI-REC'
 }
 export async function declarePayment(input: { orderId: string; accountId: string; amount: number;
   reference: string; paidAt: string; installmentId: string | null; notes: string;
@@ -46,7 +46,7 @@ export async function uploadProof(paymentId: string, file: File): Promise<void> 
     throw new Error('Justificatif PDF, JPEG ou PNG, maximum 5 Mo.')
   const extension = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg'
   const path = `payments/${paymentId}/${crypto.randomUUID()}.${extension}`
-  const { error: uploadError } = await db().storage.from('cortexia-payment-proofs').upload(path, file, {
+  const { error: uploadError } = await db().storage.from('ebi-payment-proofs').upload(path, file, {
     contentType: file.type, upsert: false,
   })
   fail(uploadError)
@@ -54,11 +54,11 @@ export async function uploadProof(paymentId: string, file: File): Promise<void> 
   fail(error); changed()
 }
 export async function signedProofUrl(path: string): Promise<string> {
-  const { data, error } = await db().storage.from('cortexia-payment-proofs').createSignedUrl(path, 60)
+  const { data, error } = await db().storage.from('ebi-payment-proofs').createSignedUrl(path, 60)
   fail(error); if (!data?.signedUrl) throw new Error('Justificatif inaccessible.'); return data.signedUrl
 }
 export async function signedFinanceDocument(path: string, seconds = 60): Promise<string> {
-  const { data, error } = await db().storage.from('cortexia-documents').createSignedUrl(path, seconds)
+  const { data, error } = await db().storage.from('ebi-documents').createSignedUrl(path, seconds)
   fail(error); if (!data?.signedUrl) throw new Error('Document inaccessible.'); return data.signedUrl
 }
 export async function getPayments(orderId?: string): Promise<Payment[]> {

@@ -260,9 +260,9 @@ revoke insert, update, delete on public.import_rows from authenticated;
 revoke insert, update, delete on public.import_batches from authenticated;
 revoke insert, update, delete on public.leads from authenticated;
 
-update storage.buckets set file_size_limit = 10485760 where id = 'cortexia-imports';
+update storage.buckets set file_size_limit = 10485760 where id = 'ebi-imports';
 drop policy if exists storage_imports_insert on storage.objects;
 create policy storage_imports_insert on storage.objects for insert to authenticated
-with check (bucket_id = 'cortexia-imports' and owner_id = (select auth.uid()::text)
+with check (bucket_id = 'ebi-imports' and owner_id = (select auth.uid()::text)
   and (select private.can_manage_all()));
 drop policy if exists storage_imports_update on storage.objects;
