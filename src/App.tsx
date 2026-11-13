@@ -1,9 +1,9 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { ArrowRight, ChevronDown, CircleHelp, Compass, LayoutGrid, LogOut, Menu, RotateCcw, ShieldCheck, X, UsersRound, CalendarDays, ShoppingBag, WalletCards } from 'lucide-react'
+import { ArrowRight, ChevronDown, CircleHelp, Compass, Gavel, Building2, BadgePercent, MonitorPlay, LayoutGrid, LogOut, Menu, RotateCcw, ShieldCheck, X, UsersRound, ShoppingBag, WalletCards } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { useAuth, roleLabels } from './lib/auth'
-import { getDashboardStats, getInspectionData, type DashboardStats, type InspectionData } from './lib/dashboard'
+import { getDashboardStats, getInspectionData, getRecentActivities, getRecentDeliveries, getUpcomingDeadlines, type DashboardStats, type InspectionData, type RecentActivity, type RecentDelivery, type UpcomingDeadline } from './lib/dashboard'
 import { modules, zones, type ZoneId } from './lib/modules'
 import { supabase } from './lib/supabase'
 import { xof } from './lib/utils'
@@ -14,6 +14,9 @@ import { ActivitiesPage } from './crm/Activities'
 import { ImportsPage } from './crm/Imports'
 import { OffersPage, OfferEditor, OfferDetail } from './commercial/Offers'
 import { ProposalsPage, ProposalEditor, ProposalDetail } from './commercial/Proposals'
+import { TendersPage } from './appels-offres/TendersPage'
+import { TenderDetail } from './appels-offres/TenderDetail'
+import { TenderForm } from './appels-offres/TenderForm'
 import { OrdersPage, OrderDetail } from './commercial/Orders'
 import { PaymentsPage } from './payments/PaymentsPage'
 import { PaymentDetail } from './payments/PaymentDetail'
@@ -24,11 +27,15 @@ import { CommissionPage } from './field/CommissionPage'
 import { ReportsPage } from './field/ReportsPage'
 import { fieldOverview } from './field/api'
 import { GlobalSearch } from './components/GlobalSearch'
+import { Notifications } from './components/Notifications'
 import { SocietesPage } from './societes/SocietesPage'
 import { CompanyForm } from './societes/CompanyForm'
 import { CompanyDetail } from './societes/CompanyDetail'
 import { BibliothequePage } from './bibliotheque/BibliothequePage'
 import { MfaCard } from './security/MfaCard'
+import { activityTypeLabels } from './societes/types'
+import { ProductionPage } from './production/ProductionPage'
+import { SettingsPage } from './settings/SettingsPage'
 
 const CommandScene = lazy(() => import('./components/CommandScene'))
 const zoneModule = (id: ZoneId) => modules.find(module => module.id === zones.find(zone => zone.id === id)?.moduleId)!
@@ -151,6 +158,7 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="breadcrumb"><span>ESPACE DE TRAVAIL</span><strong>{current.label}</strong></div>
       <div className="top-spacer" />
       <GlobalSearch />
+      <Notifications />
       <button className="account-trigger" type="button" onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen}><span className="avatar">{profile?.full_name?.slice(0, 1).toUpperCase()}</span><span className="account-name"><strong>{profile?.full_name}</strong><small>{profile && roleLabels[profile.role]}</small></span><ChevronDown size={15} /></button>
       {accountOpen && <div className="account-menu"><div><strong>{profile?.full_name}</strong><small>{profile && roleLabels[profile.role]}</small></div><Link to="/securite" onClick={() => setAccountOpen(false)}><ShieldCheck size={16} /> Sécurité &amp; double validation</Link><button onClick={() => void signOut()}><LogOut size={16} /> Se déconnecter</button></div>}
     </header>
@@ -165,10 +173,17 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 function KpiStrip({ stats, loading, error }: { stats: DashboardStats | null; loading: boolean; error: string | null }) {
+  const successRate = stats && (stats.tendersWon + stats.tendersLost) > 0
+    ? `${Math.round((stats.tendersWon / (stats.tendersWon + stats.tendersLost)) * 100)} %`
+    : null
   const items = [
+    { label: 'Appels d’offres en cours', value: stats && xof.format(stats.tendersInCourse), icon: Gavel, tone: 'blue' },
+    { label: 'Taux de réussite DAO', value: successRate ?? (stats ? '—' : ''), icon: BadgePercent, tone: 'green' },
+    { label: 'Projets actifs', value: stats && xof.format(stats.activeProjects), icon: MonitorPlay, tone: 'blue' },
+    { label: 'Clients actifs', value: stats && xof.format(stats.clientsCount), icon: Building2, tone: 'blue' },
+    { label: 'Fournisseurs référencés', value: stats && xof.format(stats.suppliersCount), icon: UsersRound, tone: 'blue' },
+    { label: 'Commandes en production', value: stats && xof.format(stats.ordersInProgress), icon: ShoppingBag, tone: 'blue' },
     { label: 'Prospects actifs', value: stats && xof.format(stats.activeLeads), icon: UsersRound, tone: 'blue' },
-    { label: 'Rendez-vous à venir', value: stats && xof.format(stats.scheduledMeetings), icon: CalendarDays, tone: 'blue' },
-    { label: 'Commandes confirmées', value: stats && xof.format(stats.confirmedOrders), icon: ShoppingBag, tone: 'blue' },
     { label: 'Encaissement net vérifié', value: stats && `${xof.format(stats.confirmedPaymentsXof)} FCFA`, icon: WalletCards, tone: 'green' },
   ]
   return <div className="kpi-strip" aria-label="Indicateurs commerciaux">{items.map((item, index) => <div className="kpi-item" key={item.label}><span className={`kpi-icon ${item.tone}`}><item.icon size={19} strokeWidth={2} /></span><div><span className="kpi-label">{item.label}</span><strong className="kpi-value">{error ? 'Indisponible' : loading ? '…' : item.value}</strong></div>{index < items.length - 1 && <span className="kpi-divider" />}</div>)}</div>
@@ -196,6 +211,8 @@ function Inspection({ id, onClose, refreshToken }: { id: ZoneId; onClose: () => 
   </aside>
 }
 
+const deliveryStatusLabels: Record<string, string> = { planned: 'Planifiée', in_transit: 'En transit', delivered: 'Livrée', cancelled: 'Annulée', partial: 'Partielle' }
+
 function Dashboard() {
   const { profile } = useAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -205,12 +222,22 @@ function Dashboard() {
   const [resetSignal, setResetSignal] = useState(0)
   const [inspectionRefresh, setInspectionRefresh] = useState(0)
   const [fieldStats, setFieldStats] = useState<Awaited<ReturnType<typeof fieldOverview>> | null>(null)
+  const [deadlines, setDeadlines] = useState<UpcomingDeadline[]>([])
+  const [deliveries, setDeliveries] = useState<RecentDelivery[]>([])
+  const [activities, setActivities] = useState<RecentActivity[]>([])
   const [force2d, setForce2d] = useState(() => window.matchMedia('(max-width: 640px)').matches)
   const [supportsWebgl, setSupportsWebgl] = useState(true)
   useEffect(() => {
     try { const canvas = document.createElement('canvas'); setSupportsWebgl(Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))) } catch { setSupportsWebgl(false) }
     let active = true
-    const refresh = () => { setInspectionRefresh(value => value + 1); getDashboardStats().then(result => { if (active) { setStats(result); setError(null) } }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Erreur de connexion') }).finally(() => { if (active) setLoading(false) }); if (profile?.role==='admin') void fieldOverview().then(result => { if(active)setFieldStats(result) }).catch(() => { if(active)setFieldStats(null) }) }
+    const refresh = () => {
+      setInspectionRefresh(value => value + 1)
+      getDashboardStats().then(result => { if (active) { setStats(result); setError(null) } }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Erreur de connexion') }).finally(() => { if (active) setLoading(false) })
+      getUpcomingDeadlines().then(result => { if (active) setDeadlines(result) }).catch(() => { if (active) setDeadlines([]) })
+      getRecentDeliveries().then(result => { if (active) setDeliveries(result) }).catch(() => { if (active) setDeliveries([]) })
+      getRecentActivities().then(result => { if (active) setActivities(result) }).catch(() => { if (active) setActivities([]) })
+      if (profile?.role==='admin') void fieldOverview().then(result => { if(active)setFieldStats(result) }).catch(() => { if(active)setFieldStats(null) })
+    }
     refresh()
     window.addEventListener('ebi:crm-changed', refresh)
     return () => { active = false; window.removeEventListener('ebi:crm-changed', refresh) }
@@ -229,6 +256,22 @@ function Dashboard() {
       {selected && <Inspection id={selected} refreshToken={inspectionRefresh} onClose={() => setSelected(null)} />}
     </section>
     <div className="zone-access"><div className="zone-access-title"><LayoutGrid size={18} /><strong>Accès aux étapes</strong><span>Sélection possible au clavier</span></div><div className="zone-buttons">{zones.map(zone => <button key={zone.id} className={selected === zone.id ? 'selected' : ''} onClick={() => setSelected(zone.id)}><span>{zone.number}</span>{zone.label}<ArrowRight size={14} /></button>)}</div></div>
+    <section className="dash-sections" aria-label="Suivi de l’activité">
+      <div className="dash-card"><div className="dash-card-head"><h2>Échéances à venir</h2><Link to="/appels-offres">Appels d’offres</Link></div>
+        {deadlines.length === 0 ? <div className="notif-empty">Aucune échéance enregistrée.</div> : <ul className="dash-list">{deadlines.map(item => <li key={`${item.kind}-${item.id}`}><div><strong>{item.label}</strong><small>{item.kind === 'tender' ? 'Dépôt d’appel d’offres' : 'Relance ou rendez-vous'}</small></div><span className={`dash-when ${new Date(item.when).getTime() - Date.now() < 72 * 3600 * 1000 ? 'dash-deadline-soon' : ''}`}>{new Date(item.when).toLocaleString('fr-TG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></li>)}</ul>}
+      </div>
+      <div className="dash-card"><div className="dash-card-head"><h2>Livraisons récentes</h2><Link to="/production">Production et livraison</Link></div>
+        {deliveries.length === 0 ? <div className="notif-empty">Aucune livraison enregistrée.</div> : <ul className="dash-list">{deliveries.map(row => <li key={row.id}><div><strong>{row.delivery_number}{row.orders?.[0]?.order_number ? ` · ${row.orders[0].order_number}` : ''}</strong><small>{deliveryStatusLabels[row.status] ?? row.status}</small></div><span className="dash-when">{row.delivered_at || row.planned_at ? new Date(row.delivered_at ?? row.planned_at!).toLocaleDateString('fr-TG') : '—'}</span></li>)}</ul>}
+      </div>
+      <div className="dash-card"><div className="dash-card-head"><h2>Activités récentes</h2><Link to="/activites">Activités</Link></div>
+        {activities.length === 0 ? <div className="notif-empty">Aucune activité enregistrée.</div> : <ul className="dash-list">{activities.map(row => {
+          const lead = Array.isArray(row.leads) ? row.leads[0] : row.leads
+          const company = lead ? (Array.isArray(lead.companies) ? lead.companies[0] : lead.companies) : null
+          const name = company?.trade_name?.trim() || company?.legal_name || 'Prospect'
+          return <li key={row.id}><div><strong>{activityTypeLabels[row.activity_type] ?? row.activity_type}{row.subject ? ` — ${row.subject}` : ''}</strong><small>{name}</small></div><span className="dash-when">{new Date(row.occurred_at).toLocaleDateString('fr-TG')}</span></li>
+        })}</ul>}
+      </div>
+    </section>
     {profile?.role==='admin'&&fieldStats&&<section className="field-admin-strip" aria-label="Pilotage financier du terrain"><div><span>Transport autorisé</span><strong>{xof.format(fieldStats.transportAuthorized)} FCFA</strong></div><div><span>Avances remises</span><strong>{xof.format(fieldStats.advancesDisbursed)} FCFA</strong></div><div><span>Dépenses justifiées</span><strong>{xof.format(fieldStats.expensesJustified)} FCFA</strong></div><div><span>À régulariser</span><strong>{xof.format(fieldStats.advancesToRegularize)} FCFA</strong></div><div><span>Commissions payables</span><strong>{xof.format(fieldStats.commissionsPayable)} FCFA</strong></div><Link to="/rapports">Analyse détaillée <ArrowRight size={14}/></Link></section>}
   </div>
 }
@@ -245,6 +288,7 @@ export default function App() {
     <Route path="/commerciaux" element={page(<SalesPage />)} /><Route path="/commerciaux/:id" element={page(<SalesDetail />)} /><Route path="/activites" element={page(<ActivitiesPage />)} /><Route path="/imports" element={page(<ImportsPage />)} />
     <Route path="/offres" element={page(<OffersPage />)} /><Route path="/offres/nouveau" element={page(<OfferEditor />)} /><Route path="/offres/:id/modifier" element={page(<OfferEditor />)} /><Route path="/offres/:id" element={page(<OfferDetail />)} />
     <Route path="/propositions" element={page(<ProposalsPage />)} /><Route path="/propositions/:id/modifier" element={page(<ProposalEditor />)} /><Route path="/propositions/:id" element={page(<ProposalDetail />)} /><Route path="/prospects/:leadId/proposition/nouvelle" element={page(<ProposalEditor />)} />
+    <Route path="/appels-offres" element={page(<TendersPage />)} /><Route path="/appels-offres/nouveau" element={page(<TenderForm />)} /><Route path="/appels-offres/:id/modifier" element={page(<TenderForm />)} /><Route path="/appels-offres/:id" element={page(<TenderDetail />)} />
     <Route path="/commandes" element={page(<OrdersPage />)} /><Route path="/commandes/:id" element={page(<OrderDetail />)} />
     <Route path="/commandes/:id/paiements" element={page(<OrderPayments />)} />
     <Route path="/paiements" element={page(<PaymentsPage />)} /><Route path="/paiements/a-verifier" element={page(<PaymentsPage pendingOnly />)} /><Route path="/paiements/:id" element={page(<PaymentDetail />)} />
@@ -254,8 +298,10 @@ export default function App() {
     <Route path="/rapports" element={page(<ReportsPage />)} />
     <Route path="/societes" element={page(<SocietesPage />)} /><Route path="/societes/nouveau" element={page(<CompanyForm />)} /><Route path="/societes/:id/modifier" element={page(<CompanyForm />)} /><Route path="/societes/:id" element={page(<CompanyDetail />)} />
     <Route path="/bibliotheque" element={page(<BibliothequePage />)} />
+    <Route path="/production" element={page(<ProductionPage />)} />
+    <Route path="/parametres" element={page(<SettingsPage />)} />
     <Route path="/securite" element={page(
       <div className="module-page"><div className="page-heading"><div><span className="section-kicker">ESPACE DE TRAVAIL</span><h1>Sécurité du compte</h1><p>Double validation (MFA), exigée des administrateurs pour les opérations sensibles.</p></div></div><MfaCard /></div>
     )} />
-    {modules.filter(module => !['dashboard', 'societes', 'prospects', 'sales', 'activities', 'imports', 'offers', 'proposals', 'orders', 'payments', 'expenses', 'commissions', 'reports', 'bibliotheque'].includes(module.id)).map(module => <Route key={module.id} path={module.path} element={page(<ModulePage moduleId={module.id} />)} />)}<Route path="*" element={<Navigate to="/" replace />} /></Routes>
+    {modules.filter(module => !['dashboard', 'societes', 'prospects', 'sales', 'activities', 'imports', 'offers', 'proposals', 'tenders', 'orders', 'payments', 'expenses', 'commissions', 'reports', 'bibliotheque', 'production', 'settings'].includes(module.id)).map(module => <Route key={module.id} path={module.path} element={page(<ModulePage moduleId={module.id} />)} />)}<Route path="*" element={<Navigate to="/" replace />} /></Routes>
 }

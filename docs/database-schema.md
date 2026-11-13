@@ -42,6 +42,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 26 | `20261114100026_companies_contacts_phase1.sql` | **EBI-IMT Phase 1** — `companies` +`trade_name/registration_number/tax_number/is_active` (+index, audit), `contacts.is_active`, `company_activities`, enum `document_type` +`library_document`, politiques référentiel élargies (permits), RPC `company_create`/`company_activity_add` |
 | 27 | `20261114103027_document_library_rpc.sql` | **EBI-IMT Phase 1** — zone R2 `r2-library` (staging), `document_links` +`companies/contacts`, journal +`upload`, `documents_select` +`permits('bibliotheque','select')`, RPC `document_download_allowed`/`user_permits`/`document_request_delete`/`document_request_restore` |
 | 28 | `20261114110028_runtime_keyword_fixes.sql` | **EBI-IMT Phase 1** — correction runtime : `create or replace` des 6 corps (M25-M27) invalidés par `pg_catalog.nullif` (mot-clé non qualifiable) ; sources 25-27 corrigées au même endroit |
+| 29 | `20261114111529_extension_workflows_phase3.sql` | **EBI-IMT Phase 3** — 9 RPC d'écriture : `tender_create/update/set_status/item_add/item_remove/quote_set`, `project_create/set_status`, `production_update` (transitions encadrées, numérotation DAO/PRO, événements, audit) |
 
 ## 3. Types énumérés
 
@@ -171,7 +172,7 @@ Légende : **PK** = clé primaire, UK = contrainte unique, FK = référence, CK 
 
 Porte restrictive supplémentaire (migration 15) : sessions sans profil actif exclues des 4 buckets.
 
-## 7. Fonctions RPC publiques (54 + 1)
+## 7. Fonctions RPC publiques (63 + 1)
 
 Par domaine — toutes `security definer`, `search_path` verrouillé, rôle vérifié en début, audit/événements écrits :
 
@@ -182,7 +183,8 @@ Par domaine — toutes `security definer`, `search_path` verrouillé, rôle vér
 - **Commissions (4)** : `sales_publish_commission_policy`, `sales_recalculate_commission`, `sales_approve_commission`, `sales_record_commission_payout`.
 - **Réservées `service_role` (Edge, 4)** : `commercial_finalize_document`, `finance_claim_document_job`, `finance_fail_document_job`, `finance_finalize_document_job`.
 - **Signalement (1)** : `ebi_signup_ready` (granted à `anon`, pré-check d'inscription).
-- **Numérotation (1, M17)** : `next_official_number(kind)` — émission des numéros DAO/PRO/CMD/ACH/LIV/FAC, appelée par les RPC des extensions (Phase 3) ; jamais appelée directement par le client.
+- **Numérotation (1, M17)** : `next_official_number(kind)` — émission des numéros DAO/PRO/CMD/ACH/LIV/FAC, appelée par les RPC des extensions ; jamais appelée directement par le client.
+- **Appels d'offres / Projets / Production (9, M29)** : `tender_create`, `tender_update`, `tender_set_status` (won ⇒ `validate` de la matrice + montant > 0 ; lost ⇒ motif), `tender_item_add`, `tender_item_remove`, `tender_quote_set` (écritures DAO limitées à l'état `preparing`), `project_create` (DAO gagné uniquement), `project_set_status`, `production_update` (permits `commandes`, horodatages auto, audit manuel).
 
 Les 5 fonctions socle redéfinies en M16 (`current_app_role`, `crm_actor`, `set_profile_role`, `commercial_finalize_document`, `create_pending_profile_for_auth_user`) conservent leurs privilèges et signatures.
 
