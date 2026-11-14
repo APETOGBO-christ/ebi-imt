@@ -51,13 +51,14 @@ export interface TenderDetail {
   documents: TenderDocumentRow[]
   linkedOrders: { id: string; order_number: string; amount_xof: string | number; order_status: string }[]
   linkedProposals: { id: string; proposal_number: string; status: string }[]
+  linkedDeliveries: { id: string; delivery_number: string; kind: string; status: string; delivered_at: string | null }[]
 }
 
 export async function getTender(id: string): Promise<TenderDetail> {
   const db = client()
-  const [tender, items, quotes, events, tasks, reminders, comments, documents, orders, proposals] = await Promise.all([
+  const [tender, items, quotes, events, tasks, reminders, comments, documents, orders, proposals, deliveries] = await Promise.all([
     db.from('tenders').select('*, companies!organism_company_id(legal_name, trade_name), profiles!responsible_id(full_name)').eq('id', id).single(),
-    db.from('tender_items').select('*').eq('tender_id', id).order('position'),
+    db.from('tender_items').select('*, offer_templates!offer_template_id(name)').eq('tender_id', id).order('position'),
     db.from('tender_quotes').select('*, companies!supplier_company_id(legal_name, trade_name)').eq('tender_id', id).order('quote_xof'),
     db.from('tender_events').select('*, profiles!actor_id(full_name)').eq('tender_id', id).order('created_at', { ascending: false }).limit(80),
     db.from('tender_tasks').select('*, profiles!assignee_id(full_name)').eq('tender_id', id).order('is_done').order('due_date', { ascending: true, nullsFirst: false }),
@@ -66,6 +67,9 @@ export async function getTender(id: string): Promise<TenderDetail> {
     db.from('tender_documents').select('*, documents(content_hash, metadata, created_at)').eq('tender_id', id).order('created_at', { ascending: false }),
     db.from('orders').select('id, order_number, amount_xof, order_status').eq('tender_id', id).order('created_at', { ascending: false }),
     db.from('commercial_proposals').select('id, proposal_number, status').eq('tender_id', id).order('created_at', { ascending: false }),
+    db.from('deliveries').select('id, delivery_number, kind, status, delivered_at, orders!inner(tender_id)').eq('orders.tender_id', id).order('created_at', { ascending: false }).then(
+      result => result.error ? { data: [] } : result
+    ),
   ])
   if (tender.error) throw new Error(tender.error.message)
   if (items.error) throw new Error(items.error.message)
@@ -88,6 +92,7 @@ export async function getTender(id: string): Promise<TenderDetail> {
     documents: (documents.data ?? []) as TenderDocumentRow[],
     linkedOrders: (orders.data ?? []) as TenderDetail['linkedOrders'],
     linkedProposals: (proposals.data ?? []) as TenderDetail['linkedProposals'],
+    linkedDeliveries: ((deliveries as { data?: unknown }).data ?? []) as TenderDetail['linkedDeliveries'],
   }
 }
 
@@ -111,6 +116,14 @@ export async function listResponsibleOptions(): Promise<PersonOption[]> {
 
 export interface LinkableOrder { id: string; order_number: string; tender_id: string | null }
 export interface LinkableProposal { id: string; proposal_number: string; tender_id: string | null }
+export interface ProductOption { id: string; name: string; price_xof: string | number }
+
+export async function listProductOptions(): Promise<ProductOption[]> {
+  const db = client()
+  const { data, error } = await db.from('offer_templates').select('id, name, price_xof').eq('status', 'active').order('name').limit(500)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as ProductOption[]
+}
 
 export async function listLinkableOrders(): Promise<LinkableOrder[]> {
   const db = client()
@@ -157,7 +170,7 @@ export async function setTenderStatus(id: string, status: TenderStatus, extra: {
   if (error) throw new Error(error.message)
 }
 
-export async function addTenderItem(tenderId: string, item: { p_designation: string; p_quantity: number; p_unit: string | null; p_unit_price_xof: number; p_notes: string | null }): Promise<void> {
+export async function addTenderItem(tenderId: string, item: { p_designation: string; p_quantity: number; p_unit: string | null; p_unit_price_xof: number; p_notes: string | null; p_offer_template_id: string | null }): Promise<void> {
   const { error } = await rpc('tender_item_add', { p_tender_id: tenderId, ...item })
   if (error) throw new Error(error.message)
 }
@@ -244,15 +257,16 @@ export interface TenderAnalytics {
   lostAmount: number
   topOrganisms: { label: string; count: number }[]
   topSuppliers: { label: string; count: number; amount: number }[]
+  years: number[]
 }
 
-export async function getTenderAnalytics(): Promise<TenderAnalytics> {
+export async function getTenderAnalytics(year: number | null = null): Promise<TenderAnalytics> {
   const db = client()
-  const tenders: { id: string; status: TenderStatus; our_amount_xof: string | number | null; awarded_amount_xof: string | number | null; estimated_amount_xof: string | number | null; companies: { legal_name: string; trade_name: string | null } | { legal_name: string; trade_name: string | null }[] | null }[] = []
+  const tenders: { id: string; status: TenderStatus; created_at: string; our_amount_xof: string | number | null; awarded_amount_xof: string | number | null; estimated_amount_xof: string | number | null; companies: { legal_name: string; trade_name: string | null } | { legal_name: string; trade_name: string | null }[] | null }[] = []
   let from = 0
   while (true) {
     const { data, error } = await db.from('tenders')
-      .select('id, status, our_amount_xof, awarded_amount_xof, estimated_amount_xof, companies!organism_company_id(legal_name, trade_name)')
+      .select('id, status, created_at, our_amount_xof, awarded_amount_xof, estimated_amount_xof, companies!organism_company_id(legal_name, trade_name)')
       .order('id').range(from, from + 999)
     if (error) throw new Error(error.message)
     const page = data ?? []
@@ -260,23 +274,28 @@ export async function getTenderAnalytics(): Promise<TenderAnalytics> {
     if (page.length < 1000) break
     from += 1000
   }
-  const quotes: { supplier_company_id: string; quote_xof: string | number; companies: { legal_name: string; trade_name: string | null } | { legal_name: string; trade_name: string | null }[] | null }[] = []
-  let qFrom = 0
-  while (true) {
-    const { data, error } = await db.from('tender_quotes')
-      .select('supplier_company_id, quote_xof, companies!supplier_company_id(legal_name, trade_name)')
-      .order('id').range(qFrom, qFrom + 999)
-    if (error) throw new Error(error.message)
-    const page = data ?? []
-    quotes.push(...(page as unknown as typeof quotes))
-    if (page.length < 1000) break
-    qFrom += 1000
+  const allYears = [...new Set(tenders.map(row => new Date(row.created_at).getFullYear()))].sort((first, second) => second - first)
+  const scoped = year === null ? tenders : tenders.filter(row => new Date(row.created_at).getFullYear() === year)
+  const quotes: { tender_id: string; supplier_company_id: string; quote_xof: string | number; companies: { legal_name: string; trade_name: string | null } | { legal_name: string; trade_name: string | null }[] | null }[] = []
+  if (scoped.length > 0) {
+    const tenderIds = new Set(scoped.map(row => row.id))
+    let qFrom = 0
+    while (true) {
+      const { data, error } = await db.from('tender_quotes')
+        .select('tender_id, supplier_company_id, quote_xof, companies!supplier_company_id(legal_name, trade_name)')
+        .order('id').range(qFrom, qFrom + 999)
+      if (error) throw new Error(error.message)
+      const page = (data ?? []) as unknown as typeof quotes
+      quotes.push(...page.filter(row => tenderIds.has(row.tender_id)))
+      if (page.length < 1000) break
+      qFrom += 1000
+    }
   }
-  const won = tenders.filter(row => row.status === 'gagne')
-  const lost = tenders.filter(row => row.status === 'perdu')
+  const won = scoped.filter(row => row.status === 'gagne')
+  const lost = scoped.filter(row => row.status === 'perdu')
   const amount = (value: string | number | null): number => value === null ? 0 : Number(value)
   const organismCounts = new Map<string, { count: number; label: string }>()
-  for (const row of tenders) {
+  for (const row of scoped) {
     const label = (row.companies ? (Array.isArray(row.companies) ? row.companies[0] : row.companies)?.trade_name?.trim() || (Array.isArray(row.companies) ? row.companies[0] : row.companies)?.legal_name : '') || 'Organisme inconnu'
     const entry = organismCounts.get(label) ?? { count: 0, label }
     entry.count += 1
@@ -291,16 +310,17 @@ export async function getTenderAnalytics(): Promise<TenderAnalytics> {
     supplierCounts.set(label, entry)
   }
   return {
-    total: tenders.length,
+    total: scoped.length,
     won: won.length,
     lost: lost.length,
-    deposited: tenders.filter(row => row.status === 'depose' || row.status === 'en_evaluation' || row.status === 'gagne' || row.status === 'perdu').length,
-    inCourse: tenders.filter(row => !['gagne', 'perdu', 'annule'].includes(row.status)).length,
+    deposited: scoped.filter(row => row.status === 'depose' || row.status === 'en_evaluation' || row.status === 'gagne' || row.status === 'perdu').length,
+    inCourse: scoped.filter(row => !['gagne', 'perdu', 'annule'].includes(row.status)).length,
     successRate: won.length + lost.length > 0 ? Math.round((won.length / (won.length + lost.length)) * 100) : null,
     wonAmount: won.reduce((sum, row) => sum + amount(row.awarded_amount_xof ?? row.our_amount_xof), 0),
     lostAmount: lost.reduce((sum, row) => sum + amount(row.our_amount_xof ?? row.estimated_amount_xof), 0),
     topOrganisms: [...organismCounts.values()].sort((first, second) => second.count - first.count).slice(0, 5),
     topSuppliers: [...supplierCounts.values()].sort((first, second) => second.count - first.count).slice(0, 5),
+    years: allYears,
   }
 }
 

@@ -7,8 +7,8 @@ import { usePermits } from '../lib/permissions'
 import {
   addTenderComment, addTenderItem, addTenderReminder, addTenderTask, attachTenderDocument,
   getTender, linkOrder, linkProposal, listCompanyOptions, listLinkableOrders, listLinkableProposals,
-  listResponsibleOptions, removeTenderDocument, removeTenderItem, removeTenderTask,
-  setTenderQuote, setTenderReminderDone, setTenderStatus, setTenderTaskDone, type TenderDetail,
+  listProductOptions, listResponsibleOptions, removeTenderDocument, removeTenderItem, removeTenderTask,
+  setTenderQuote, setTenderReminderDone, setTenderStatus, setTenderTaskDone, type ProductOption, type TenderDetail,
 } from './api'
 import {
   allowedTransitions, companyLabel, firstEmbed, shortDate, tenderCategoryLabels, tenderEventLabels,
@@ -18,6 +18,7 @@ import {
 const editablesStatuses: TenderStatus[] = ['identifie', 'a_analyser', 'en_preparation', 'attente_documents', 'pret_deposer']
 const orderStatusLabels: Record<string, string> = { draft: 'Brouillon', confirmed: 'Confirmée', cancelled: 'Annulée', completed: 'Terminée' }
 const proposalStatusLabels: Record<string, string> = { draft: 'Brouillon', pending_approval: 'À valider', approved: 'Validée', sent: 'Envoyée', accepted: 'Acceptée', rejected: 'Refusée', cancelled: 'Annulée' }
+const deliveryStatusLabels: Record<string, string> = { planned: 'Planifiée', in_transit: 'En transit', delivered: 'Livrée', partial: 'Partielle', cancelled: 'Annulée' }
 
 export function TenderDetail() {
   const { id } = useParams()
@@ -30,7 +31,7 @@ export function TenderDetail() {
   const [wonAmount, setWonAmount] = useState('')
   const [lostReason, setLostReason] = useState('')
   const [targetStatus, setTargetStatus] = useState<TenderStatus | ''>('')
-  const [newItem, setNewItem] = useState({ designation: '', quantity: '1', unit: '', unitPrice: '', notes: '' })
+  const [newItem, setNewItem] = useState({ product: '', designation: '', quantity: '1', unit: '', unitPrice: '', notes: '' })
   const [quoteDraft, setQuoteDraft] = useState<{ itemId: string; supplier: string; amount: string } | null>(null)
   const [suppliers, setSuppliers] = useState<{ id: string; label: string }[]>([])
   const [people, setPeople] = useState<{ id: string; label: string }[]>([])
@@ -44,11 +45,12 @@ export function TenderDetail() {
   const refresh = useCallback(() => {
     if (!id) return
     setLoading(true)
-    Promise.all([getTender(id), listCompanyOptions(), listResponsibleOptions(), listLinkableOrders(), listLinkableProposals()])
-      .then(([detail, options, persons, orders, proposals]) => {
+    Promise.all([getTender(id), listCompanyOptions(), listResponsibleOptions(), listLinkableOrders(), listLinkableProposals(), listProductOptions()])
+      .then(([detail, options, persons, orders, proposals, products]) => {
         setDetail(detail)
         setSuppliers(options.map(option => ({ id: option.id, label: option.trade_name?.trim() || option.legal_name })))
         setPeople(persons.map(option => ({ id: option.id, label: option.full_name })))
+        setProducts(products)
         setOrderCandidates(orders.filter(order => order.id !== detail.tender.id && order.tender_id !== detail.tender.id))
         setProposalCandidates(proposals.filter(proposal => proposal.tender_id !== detail.tender.id))
         setWonAmount(detail.tender.awarded_amount_xof != null ? String(detail.tender.awarded_amount_xof) : detail.tender.our_amount_xof != null ? String(detail.tender.our_amount_xof) : '')
@@ -61,6 +63,7 @@ export function TenderDetail() {
 
   const [orderCandidates, setOrderCandidates] = useState<{ id: string; order_number: string }[]>([])
   const [proposalCandidates, setProposalCandidates] = useState<{ id: string; proposal_number: string }[]>([])
+  const [products, setProducts] = useState<ProductOption[]>([])
 
   if (loading) return <div className="crm-page"><div className="crm-empty">Chargement du dossier.</div></div>
   if (!detail) return <div className="crm-page"><div className="crm-alert" role="alert">{error ?? 'Dossier introuvable.'}</div></div>
@@ -107,9 +110,20 @@ export function TenderDetail() {
         p_unit: newItem.unit.trim() || null,
         p_unit_price_xof: Number(newItem.unitPrice),
         p_notes: newItem.notes.trim() || null,
+        p_offer_template_id: newItem.product || null,
       })
-      setNewItem({ designation: '', quantity: '1', unit: '', unitPrice: '', notes: '' })
+      setNewItem({ product: '', designation: '', quantity: '1', unit: '', unitPrice: '', notes: '' })
     }, 'Ligne ajoutée.')
+  }
+
+  function pickProduct(templateId: string) {
+    const product = products.find(option => option.id === templateId)
+    setNewItem(old => ({
+      ...old,
+      product: templateId,
+      designation: old.designation.trim() || product?.name || '',
+      unitPrice: old.unitPrice.trim() || (product?.price_xof != null ? String(product.price_xof) : ''),
+    }))
   }
 
   function submitQuote(event: FormEvent) {
@@ -216,7 +230,7 @@ export function TenderDetail() {
             <thead><tr><th>#</th><th>Désignation</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th>{canItems && canEdit && <th />}</tr></thead>
             <tbody>{detail.items.map(item => <tr key={item.id}>
               <td>{item.position}</td>
-              <td><strong>{item.designation}</strong>{item.notes && <small>{item.notes}</small>}</td>
+              <td><strong>{item.designation}</strong>{firstEmbed(item.offer_templates)?.name && <small>Produit : {firstEmbed(item.offer_templates)!.name}</small>}{item.notes && <small>{item.notes}</small>}</td>
               <td>{item.quantity} {item.unit ?? ''}</td>
               <td>{xof(item.unit_price_xof)}</td>
               <td>{xof(item.amount_xof)}</td>
@@ -227,6 +241,10 @@ export function TenderDetail() {
           {detail.items.length === 0 && <div className="crm-empty">Aucune ligne enregistrée.</div>}
         </div>
         {canItems && canEdit && <form className="crm-inline-form" onSubmit={submitItem}>
+          <select aria-label="Produit du catalogue (optionnel)" value={newItem.product} onChange={event => pickProduct(event.target.value)}>
+            <option value="">Produit libre…</option>
+            {products.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </select>
           <input required placeholder="Désignation" value={newItem.designation} onChange={event => setNewItem(old => ({ ...old, designation: event.target.value }))} />
           <input inputMode="decimal" placeholder="Qté" value={newItem.quantity} onChange={event => setNewItem(old => ({ ...old, quantity: event.target.value }))} />
           <input placeholder="Unité" value={newItem.unit} onChange={event => setNewItem(old => ({ ...old, unit: event.target.value }))} />
@@ -339,6 +357,10 @@ export function TenderDetail() {
           </select>
           <Button type="submit" disabled={pending || !proposalDraft}>Rattacher</Button>
         </form>}
+        <h3 className="dao-subhead">Livraisons des commandes liées</h3>
+        {detail.linkedDeliveries.length === 0 ? <div className="crm-empty">Aucune livraison pour ces commandes.</div> : <ul className="dao-timeline">{detail.linkedDeliveries.map(delivery => (
+          <li key={delivery.id}><strong>{delivery.delivery_number}</strong><small>{delivery.kind === 'client_delivery' ? 'Livraison client' : 'Réception fournisseur'} · {deliveryStatusLabels[delivery.status] ?? delivery.status}{delivery.delivered_at ? ` · ${shortDate(delivery.delivered_at)}` : ''}</small></li>
+        ))}</ul>}
       </section>
 
       <section className="dao-panel">

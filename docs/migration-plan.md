@@ -9,12 +9,12 @@ Stratégie de mise en place d'un projet Supabase **neuf** pour EBI-IMT, établie
 | Ancien projet (cortexiagroup) | Lié historiquement, 3/15 migrations appliquées, abandonné — **aucune opération** |
 | Lien CLI local | Lié au projet neuf `xxilfzpkdwggfilwyrjw` (EBI Manager) — ancien ref `qyyvgmndcaroywkyefdf` jamais touché |
 | `.env.local` | URL + clé publishable du projet neuf (aucune clé service côté frontend) |
-| Migrations locales | **30** applicables depuis zéro (15 socle + 15 extensions EBI-IMT, 70 tables) |
+| Migrations locales | **31** applicables depuis zéro (15 socle + 16 extensions EBI-IMT, 70 tables) |
 | Code | typecheck OK, 46/46 tests Vitest OK, build OK (preuves dans `docs/audit-final.md` § 7) |
 
 ## 2. Ordre d'application des migrations
 
-Les **30** fichiers s'appliquent dans l'ordre chronologique de leur horodatage (convention `supabase db push`) : migrations 1-15 = socle Cortexia audité, migrations **16-30 = extensions EBI-IMT** (PROMPT 2/3/4 + module appels d'offres étendu). État attendu après push complet : **70 tables** (42 socle + 28 extensions), 16 enums (+1 valeur `library_document` en M26), 5 séquences socle + table `official_sequences`, 4 buckets Storage, ~65 RPC métier publiques, RLS intégral avec porte `active_profile_gate` sur chaque table d'extension. Le point de contrôle exact est défini dans `docs/phase-0-checklist.md` (V4-V5).
+Les **31** fichiers s'appliquent dans l'ordre chronologique de leur horodatage (convention `supabase db push`) : migrations 1-15 = socle Cortexia audité, migrations **16-31 = extensions EBI-IMT** (PROMPT 2/3/4 + module appels d'offres étendu). État attendu après push complet : **70 tables** (42 socle + 28 extensions), 16 enums (+1 valeur `library_document` en M26), 5 séquences socle + table `official_sequences`, 4 buckets Storage, ~65 RPC métier publiques, RLS intégral avec porte `active_profile_gate` sur chaque table d'extension. Le point de contrôle exact est défini dans `docs/phase-0-checklist.md` (V4-V5).
 
 Particularités à connaître avant le push :
 
@@ -70,9 +70,9 @@ Modifications **en place** dans les fichiers existants, justifiées par le fait 
 
 Variante acceptée pour 1-2 : une migration additive supplémentaire (`update finance_settings set receipt_prefix=…`) si la direction préfère ne pas toucher l'historique. Recommandation : modification en place (historique de départ propre pour EBI-IMT).
 
-## 5. Migrations 16-30 — extensions EBI-IMT (PROMPT 2/3/4 + module appels d'offres)
+## 5. Migrations 16-31 — extensions EBI-IMT (PROMPT 2/3/4 + module appels d'offres)
 
-Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 puis 28/28 corrective, 29/29 Phase 3 et 30/30 appels d'offres étendu, sur autorisation du commanditaire) après quatre corrections en place : M16 (drop/recréation de `profiles_insert` dépendante de la bascule du type de colonne), M25 (`coalesce` est un mot-clé — suppression des `pg_catalog.coalesce` invalides et qualification des built-ins dans les corps `search_path = ''`), M26 (trigger `crm_audit_companies` déjà créé par le socle — redondance retirée), puis migration 28 additive (corps `pg_catalog.nullif` invalides remplacés — voir ligne 28 du § 5). Chaque en-tête SQL détaille objectif/tables/dépendances/risques/retour arrière ; synthèse opérationnelle :
+Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 puis 28/28 corrective, 29/29 Phase 3, 30/30 appels d'offres étendu et 31/31 lignes-produits, sur autorisation du commanditaire) après quatre corrections en place : M16 (drop/recréation de `profiles_insert` dépendante de la bascule du type de colonne), M25 (`coalesce` est un mot-clé — suppression des `pg_catalog.coalesce` invalides et qualification des built-ins dans les corps `search_path = ''`), M26 (trigger `crm_audit_companies` déjà créé par le socle — redondance retirée), puis migration 28 additive (corps `pg_catalog.nullif` invalides remplacés — voir ligne 28 du § 5). Chaque en-tête SQL détaille objectif/tables/dépendances/risques/retour arrière ; synthèse opérationnelle :
 
 | # | Fichier | Objectif | Tables / objets | Dépendances | Risques principaux | Retour arrière |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -91,6 +91,7 @@ Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 p
 | 28 | `20261114110028_runtime_keyword_fixes.sql` | Correction runtime des corps déjà appliqués (migrations 25-27) | `create or replace` de 6 fonctions dont le corps appliqué portait `pg_catalog.nullif(...)` invalide : `admin_bootstrap_profile`, `finance_confirm_payment`, `finance_execute_adjustment` (M25), `company_create`, `company_activity_add` (M26), `document_request_delete` (M27) ; sources 25-27 corrigées au même endroit | M25-M27 | `nullif`/`coalesce` sont des mots-clés du parser (jamais qualifiables `pg_catalog.`) ; `count` est un vrai agrégat catalogué | Aucun objet destructif : recréer les corps antérieurs (conservés dans 25-27) |
 | 29 | `20261114111529_extension_workflows_phase3.sql` | Workflows d'écriture des extensions (Phase 3, PROMPT UI) | 9 RPC : `tender_create/update/set_status/item_add/item_remove/quote_set`, `project_create/set_status`, `production_update` ; transitions encadrées (won ⇒ validate + montant > 0, lost ⇒ motif), numérotation `next_official_number('dao'/'pro')`, événements `tender_events`, horodatages production | M16 (permits), M17 (numérotation), M20-M23, M26 | Aucune table nouvelle ; `direction` valide les engagements (matrice) ; lignes/devis DAO modifiables uniquement en `preparing` | Drop des 9 fonctions (aucun objet destructif) |
 | 30 | `20261114121630_tenders_expansion.sql` | Module appels d'offres étendu (cahier des charges complet) | `tenders` : +`description/publication_date/estimated_amount_xof/our_amount_xof/responsible_id`, rename `preparation_notes`→`observations`, remap statuts → CHECK 10 états (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`) ; 4 tables nouvelles `tender_documents/tender_tasks/tender_reminders/tender_comments` (RLS full CRUD authenticated) ; `orders.tender_id` + `commercial_proposals.tender_id` ; 9 RPC M29 redéfinies (10 états : gagne ⇒ `validate` + montant > 0, perdu ⇒ motif ; écritures lignes/devis limitées aux 5 états pré-dépôt) + 2 nouvelles `order_set_tender`/`proposal_set_tender` | M16 (permits), M17 (numérotation), M19 (`document_links`), M20, M26 (sociétés) | Remap des statuts en ouverture (base alors vierge de DAO) ; transitions encadrées ; pré-dépôt = 5 états | Drop des 4 tables + colonnes additives ; recréer les RPC (corps conservés dans le fichier) |
+| 31 | `20261114122031_tender_items_products.sql` | Lignes de DAO reliées au catalogue produits | `tender_items.offer_template_id` FK `offer_templates` (additive, `on delete set null`) + index ; `tender_item_add` recréée de 6 à 7 arguments (`p_offer_template_id default null`, vérifie produit actif) — l'ancienne signature 6-arg est supprimée (une seule version) | M20 (tender_items), M7 (offer_templates), M16 (permits) | Uniquement additif ; la désignation libre reste possible (produit = suggestion) | `drop column` + recréer `tender_item_add` à 6 arguments (corps conservé dans M30 § 7.d) |
 
 Invariant respecté par toutes : RLS activé + politique SELECT `permits()` + porte restrictive `active_profile_gate` recréée + `anon` révoqué + grants SELECT à `authenticated` + écritures directes révoquées (hors UPDATE/INSERT admin sur `role_permissions`, encadrés admin+MFA, M25). Numérotation et transitions : `docs/database-relations.md` § 10 et § 12 ; modèle de sécurité : `docs/security-model.md`.
 
@@ -118,7 +119,7 @@ psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase\tests\pgm4_phase1
 # 3. Projet distant NEUF uniquement
 supabase link --project-ref <ref-neuf>                    # vérifier le ref !
 supabase migration list --linked                          # 0 migration attendue
-supabase db push --dry-run; supabase db push              # 30/30 attendu
+supabase db push --dry-run; supabase db push              # 31/31 attendu
 supabase gen types typescript --linked > src\types\database.ts
 
 # 4. Edge

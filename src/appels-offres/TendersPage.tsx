@@ -8,9 +8,16 @@ import { companyLabel, firstEmbed, shortDate, tenderStatusClass, tenderStatusLab
 
 const pageSize = 20
 
-function AnalysisView({ analytics }: { analytics: TenderAnalytics }) {
+function AnalysisView({ analytics, year, onYearChange }: { analytics: TenderAnalytics; year: number | null; onYearChange: (year: number | null) => void }) {
   const format = (value: number) => `${new Intl.NumberFormat('fr-TG').format(value)} FCFA`
   return <div>
+    <div className="crm-toolbar" style={{ marginBottom: 15 }}>
+      <select aria-label="Période d’analyse" value={year === null ? '' : String(year)} onChange={event => onYearChange(event.target.value === '' ? null : Number(event.target.value))}>
+        <option value="">Toutes les années</option>
+        {analytics.years.map(entry => <option key={entry} value={entry}>{entry}</option>)}
+      </select>
+      <span className="crm-count">Historique complet conservé — comparez les performances année par année.</span>
+    </div>
     <div className="kpi-strip" aria-label="Indicateurs des appels d’offres">
       <div className="kpi-item"><span className="kpi-icon blue"><Gavel size={19} /></span><div><span className="kpi-label">Dossiers traités</span><strong className="kpi-value">{analytics.total}</strong></div><span className="kpi-divider" /></div>
       <div className="kpi-item"><span className="kpi-icon blue"><ArrowRight size={19} /></span><div><span className="kpi-label">En cours</span><strong className="kpi-value">{analytics.inCourse}</strong></div><span className="kpi-divider" /></div>
@@ -40,6 +47,7 @@ export function TendersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAnalysis, setShowAnalysis] = useState(false)
+  const [analysisYear, setAnalysisYear] = useState<number | null>(null)
   const [analytics, setAnalytics] = useState<TenderAnalytics | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
 
@@ -59,11 +67,11 @@ export function TendersPage() {
     if (!showAnalysis) return
     let active = true
     setAnalyticsError(null)
-    getTenderAnalytics()
+    getTenderAnalytics(analysisYear)
       .then(result => { if (active) setAnalytics(result) })
       .catch(reason => { if (active) setAnalyticsError(reason instanceof Error ? reason.message : 'Analyse indisponible.') })
     return () => { active = false }
-  }, [showAnalysis])
+  }, [showAnalysis, analysisYear])
 
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const canCreate = !permitsLoading && can('appels_offres', 'insert')
@@ -75,7 +83,7 @@ export function TendersPage() {
         {canCreate && <Button asChild><Link to="/appels-offres/nouveau"><Plus size={17} /> Nouvel appel d’offres</Link></Button>}
       </div>
     </div>
-    {showAnalysis ? (analyticsError ? <div className="crm-alert" role="alert">{analyticsError}</div> : analytics ? <AnalysisView analytics={analytics} /> : <div className="crm-empty">Calcul des indicateurs…</div>) : <>
+    {showAnalysis ? (analyticsError ? <div className="crm-alert" role="alert">{analyticsError}</div> : analytics ? <AnalysisView analytics={analytics} year={analysisYear} onYearChange={setAnalysisYear} /> : <div className="crm-empty">Calcul des indicateurs…</div>) : <>
       <div className="crm-toolbar">
         <div className="crm-search"><Search size={17} /><input aria-label="Rechercher un appel d’offres" placeholder="Numéro ou intitulé du dossier." value={filters.search} onChange={event => setFilters(old => ({ ...old, search: event.target.value, page: 0 }))} /></div>
         <select aria-label="Filtrer par statut" value={filters.status} onChange={event => setFilters(old => ({ ...old, status: event.target.value as TenderFilters['status'], page: 0 }))}>

@@ -1,6 +1,6 @@
 ﻿# Schéma de base de données — EBI-IMT Business Manager
 
-Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-30, PROMPT 2/3/4 + module appels d'offres étendu)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (30/30) ; ce document reste la référence unique.
+Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-31, PROMPT 2/3/4 + module appels d'offres étendu)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (31/31) ; ce document reste la référence unique.
 
 ## 1. Organisation générale
 
@@ -44,6 +44,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 28 | `20261114110028_runtime_keyword_fixes.sql` | **EBI-IMT Phase 1** — correction runtime : `create or replace` des 6 corps (M25-M27) invalidés par `pg_catalog.nullif` (mot-clé non qualifiable) ; sources 25-27 corrigées au même endroit |
 | 29 | `20261114111529_extension_workflows_phase3.sql` | **EBI-IMT Phase 3** — 9 RPC d'écriture : `tender_create/update/set_status/item_add/item_remove/quote_set`, `project_create/set_status`, `production_update` (transitions encadrées, numérotation DAO/PRO, événements, audit) |
 | 30 | `20261114121630_tenders_expansion.sql` | **EBI-IMT Appels d'offres étendu** — `tenders` +5 colonnes (`description/publication_date/estimated_amount_xof/our_amount_xof/responsible_id`), rename `observations`, CHECK 10 statuts (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`) ; `tender_documents/tender_tasks/tender_reminder/tender_comments` (4 tables, RLS full CRUD) ; `orders.tender_id` + `commercial_proposals.tender_id` ; RPC redéfinies + `order_set_tender`/`proposal_set_tender` |
+| 31 | `20261114122031_tender_items_products.sql` | **EBI-IMT DAO ↔ produits** — `tender_items.offer_template_id` FK `offer_templates` (additive, on delete set null) + index ; `tender_item_add` 6→7 arguments (produit actif vérifié), ancienne signature supprimée |
 
 ## 3. Types énumérés
 
@@ -213,9 +214,9 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 ---
 
-# Partie 2 — Extensions EBI-IMT (migrations 16-30, PROMPT 2/3/4 + appels d'offres étendu)
+# Partie 2 — Extensions EBI-IMT (migrations 16-31, PROMPT 2/3/4 + appels d'offres étendu)
 
-> Statut : **appliqué** (30/30 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`.
+> Statut : **appliqué** (31/31 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`.
 
 ## 9. Tables des extensions (27)
 
@@ -250,6 +251,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 - **tender_events** — traçabilité.
 - **M30 — suivi** : **tender_documents** (document_id FK documents + category CHECK 9 catégories DAO/pièces/offre technique/offre financière/devis/justificatifs/correspondances/PV/résultats, UK (document, tender) — la bibliothèque reste le stockage maître), **tender_tasks** (tâches assignées : label, assignee FK profiles, due_date, done_at/by), **tender_reminders** (rappels : remind_at, done_at), **tender_comments** (commentaires avec event_kind optionnel) — toutes RLS full CRUD `authenticated`.
 - **M30 — relations** : `orders.tender_id` et `commercial_proposals.tender_id` (FK additives, index) — une commande ou une proposition peut être rattachée à un DAO (`order_set_tender`/`proposal_set_tender`).
+- **M31 — produits** : `tender_items.offer_template_id` FK `offer_templates` (optionnel, `on delete set null`) — chaque ligne du DAO peut référencer un produit/service du catalogue actif (`tender_item_add` vérifie `status = 'active'`) ; la désignation libre reste possible. Les livraisons restent reliées de façon transitive via `deliveries.order_id → orders.tender_id`.
 
 ### 9.6 Projets (M21 — 1 + orders étendu)
 
@@ -292,7 +294,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 | Module EBI-IMT | Tables principales | Écritures prévues (Phase 3) |
 | --- | --- | --- |
-| Appels d'offres | tenders, tender_items, tender_quotes, tender_events, tender_documents, tender_tasks, tender_reminders, tender_comments, documents, companies, profiles | RPC tender_* (création `next_official_number('dao')`, transitions 10 états), suivi en full CRUD, `order_set_tender`/`proposal_set_tender` |
+| Appels d'offres | tenders, tender_items (+offer_template_id), tender_quotes, tender_events, tender_documents, tender_tasks, tender_reminders, tender_comments, documents, companies, profiles, offer_templates | RPC tender_* (création `next_official_number('dao')`, transitions 10 états), suivi en full CRUD, `order_set_tender`/`proposal_set_tender` |
 | Projets | projects, orders (project_id), tenders | RPC project_* (création, rattachement commande) |
 | Achats | purchase_orders/_lines, supplier_invoices, supplier_payments, _events, company_roles | RPC purchase_*/supplier_* (immutabilité décaissements) |
 | Livraisons | deliveries, delivery_lines, orders, purchase_orders | RPC delivery_* (transitions, réception par ligne) |

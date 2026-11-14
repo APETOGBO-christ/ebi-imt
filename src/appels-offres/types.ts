@@ -66,6 +66,8 @@ export interface TenderItemRow {
   unit_price_xof: string | number
   amount_xof: string | number
   notes: string | null
+  offer_template_id: string | null
+  offer_templates?: { name: string } | { name: string }[] | null
 }
 
 export interface TenderQuoteRow {
