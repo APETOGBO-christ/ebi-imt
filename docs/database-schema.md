@@ -1,6 +1,6 @@
 ﻿# Schéma de base de données — EBI-IMT Business Manager
 
-Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-31, PROMPT 2/3/4 + module appels d'offres étendu)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (31/31) ; ce document reste la référence unique.
+Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-32, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (32/32) ; ce document reste la référence unique.
 
 ## 1. Organisation générale
 
@@ -45,6 +45,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 29 | `20261114111529_extension_workflows_phase3.sql` | **EBI-IMT Phase 3** — 9 RPC d'écriture : `tender_create/update/set_status/item_add/item_remove/quote_set`, `project_create/set_status`, `production_update` (transitions encadrées, numérotation DAO/PRO, événements, audit) |
 | 30 | `20261114121630_tenders_expansion.sql` | **EBI-IMT Appels d'offres étendu** — `tenders` +5 colonnes (`description/publication_date/estimated_amount_xof/our_amount_xof/responsible_id`), rename `observations`, CHECK 10 statuts (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`) ; `tender_documents/tender_tasks/tender_reminder/tender_comments` (4 tables, RLS full CRUD) ; `orders.tender_id` + `commercial_proposals.tender_id` ; RPC redéfinies + `order_set_tender`/`proposal_set_tender` |
 | 31 | `20261114122031_tender_items_products.sql` | **EBI-IMT DAO ↔ produits** — `tender_items.offer_template_id` FK `offer_templates` (additive, on delete set null) + index ; `tender_item_add` 6→7 arguments (produit actif vérifié), ancienne signature supprimée |
+| 32 | `20261114123032_security_hardening_audit.sql` | **EBI-IMT Durcissement sécurité** — `audit_logs` : porte FOR ALL supprimée (SELECT admin uniquement, revoke INSERT/UPDATE/DELETE/TRUNCATE) ; revoke TRUNCATE global (toutes tables publiques) ; porte Storage recréée AS RESTRICTIVE (profil actif exigé sur tout bucket) ; revoke EXECUTE à `anon` sur 16 fonctions |
 
 ## 3. Types énumérés
 
@@ -114,7 +115,7 @@ Légende : **PK** = clé primaire, UK = contrainte unique, FK = référence, CK 
 ### 4.8 Socle transverse (5)
 
 - **expenses** — dépenses legacy (gelées, lecture seule).
-- **audit_logs** — journal append-only polymorphe : `id` identity, `actor_id`, `action`, `entity_table`, `entity_id`, `changes`, `context`. `FORCE ROW LEVEL SECURITY`. Alimenté par triggers CRM + RPC métier. RLS lecture : admin/manager.
+- **audit_logs** — journal append-only polymorphe : `id` identity, `actor_id`, `action`, `entity_table`, `entity_id`, `changes`, `context`. `FORCE ROW LEVEL SECURITY`. Alimenté par triggers CRM + RPC métier. RLS lecture : admin/manager. **M32** : aucun droit d'écriture à l'API (SELECT admin uniquement, écriture par déclencheurs SECURITY DEFINER, TRUNCATE révoqué à tous les rôles API).
 - **import_batches** — lots : `uploaded_by`, `file_name`, `file_hash` (UK par utilisateur), `file_size_bytes` (≤ 10 Mo), `file_format`, `storage_path` UK, `column_mapping`, `status`, compteurs (`analyzed/created/updated/duplicate/rejected/conflict`).
 - **import_rows** — lignes : `batch_id` FK (cascade), `row_number` (UK batch+n°), `raw_data`, `normalized_data`, `action`, `matched_lead_id`, `decision_action`, `reviewed_by/at`. Écritures via RPC uniquement.
 - **expense_policies** — politiques legacy (lecture publique authentifiée, gelées).
@@ -172,7 +173,7 @@ Légende : **PK** = clé primaire, UK = contrainte unique, FK = référence, CK 
 | `ebi-payment-proofs` | 5 Mo | JPEG/PNG/PDF | déclarant du paiement pending, chemin `payments/{id}/…` | ligne `documents`/paiement correspondante |
 | `ebi-field-proofs` | 5 Mo | PDF/JPEG/PNG | propriétaire du chemin `field/{uid}/…` | admin, manager habilité, ou possesseur |
 
-Porte restrictive supplémentaire (migration 15) : sessions sans profil actif exclues des 4 buckets.
+Porte restrictive supplémentaire (migration 15, **recréée AS RESTRICTIVE en M32**) : sessions sans profil actif exclues de **tous les buckets, tous les verbes** ; les politiques ciblées par bucket (documents/imports/preuves) restent les seules autorisations permissives ; TRUNCATE révoqué à tous les rôles API (M32).
 
 ## 7. Fonctions RPC publiques (65 + 1)
 
@@ -214,9 +215,9 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 ---
 
-# Partie 2 — Extensions EBI-IMT (migrations 16-31, PROMPT 2/3/4 + appels d'offres étendu)
+# Partie 2 — Extensions EBI-IMT (migrations 16-32, PROMPT 2/3/4 + appels d'offres + sécurité)
 
-> Statut : **appliqué** (31/31 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`.
+> Statut : **appliqué** (32/32 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
 
 ## 9. Tables des extensions (27)
 
