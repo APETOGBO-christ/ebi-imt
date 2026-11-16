@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sha256Hex } from './api'
-import { displayTitle, formatBytes, imageMimeTypes, type DocumentRow } from './types'
+import { displayTitle, formatBytes, imageMimeTypes, inPeriod, mimeCategory, type DocumentRow } from './types'
 
 describe('bibliothèque (préparation des dépôts)', () => {
   it('calcule le SHA-256 côté navigateur (vecteur de référence)', async () => {
@@ -25,6 +25,24 @@ describe('bibliothèque (préparation des dépôts)', () => {
   it("reconnaît les types d'image prévisualisables", () => {
     expect(imageMimeTypes).toContain('image/png')
     expect(imageMimeTypes).not.toContain('application/pdf')
+  })
+
+  it('classe les fichiers par type pour le filtre de bibliothèque', () => {
+    expect(mimeCategory('application/pdf')).toBe('pdf')
+    expect(mimeCategory('image/png')).toBe('image')
+    expect(mimeCategory('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBe('word')
+    expect(mimeCategory('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).toBe('excel')
+    expect(mimeCategory('application/zip')).toBe('autre')
+    expect(mimeCategory(null)).toBe('autre')
+  })
+
+  it('applique les filtres de période de dépôt', () => {
+    const now = Date.now()
+    expect(inPeriod(new Date(now - 3 * 86_400_000).toISOString(), '7j')).toBe(true)
+    expect(inPeriod(new Date(now - 10 * 86_400_000).toISOString(), '7j')).toBe(false)
+    expect(inPeriod(new Date(now - 10 * 86_400_000).toISOString(), '30j')).toBe(true)
+    expect(inPeriod(new Date(now - 400 * 86_400_000).toISOString(), '12m')).toBe(false)
+    expect(inPeriod(new Date(now - 400 * 86_400_000).toISOString(), '')).toBe(true)
   })
 
   it("garde la structure attendue d'un document", () => {

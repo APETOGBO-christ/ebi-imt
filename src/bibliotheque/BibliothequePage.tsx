@@ -10,7 +10,7 @@ import {
   deleteDocument, downloadUrl, listDocuments, restoreDocument, runReconcile, uploadDocument,
   type DocumentFilters,
 } from './api'
-import { displayTitle, formatBytes, imageMimeTypes, type CompanyOption, type DocumentRow } from './types'
+import { displayTitle, formatBytes, imageMimeTypes, inPeriod, mimeCategory, mimeCategoryLabels, type CompanyOption, type DocumentRow } from './types'
 
 function formatDate(value: string | null): string {
   if (!value) return '-'
@@ -26,6 +26,8 @@ export function BibliothequePage() {
   const canDelete = !permitsLoading && can('bibliotheque', 'delete')
   const isAdmin = profile?.role === 'admin'
   const [filters, setFilters] = useState<DocumentFilters>({ search: '', companyId: '', deleted: false })
+  const [typeFilter, setTypeFilter] = useState('')
+  const [periodFilter, setPeriodFilter] = useState('')
   const [familyView, setFamilyView] = useState<{ familyKey: string; title: string } | null>(null)
   const [rows, setRows] = useState<DocumentRow[]>([])
   const [companies, setCompanies] = useState<CompanyOption[]>([])
@@ -150,6 +152,8 @@ export function BibliothequePage() {
   }
 
   const activeRows = rows.filter(row => filters.deleted || row.deleted_at === null)
+    .filter(row => typeFilter === '' || mimeCategory(row.metadata?.mime_type) === typeFilter)
+    .filter(row => inPeriod(row.created_at, periodFilter))
 
   return <div className="crm-page">
     <div className="crm-page-head"><div><span className="section-kicker">DOCUMENTS</span><h1>Bibliothèque</h1><p>Dépôts vérifiés par empreinte SHA-256, versions, corbeille et rattachement aux sociétés.</p></div>
@@ -163,6 +167,16 @@ export function BibliothequePage() {
       <select aria-label="Filtrer par société rattachée" value={filters.companyId ?? ''} onChange={event => setFilters(old => ({ ...old, companyId: event.target.value }))}>
         <option value="">Toutes les sociétés</option>
         {companies.map(company => <option key={company.id} value={company.id}>{company.trade_name ?? company.legal_name}</option>)}
+      </select>
+      <select aria-label="Filtrer par type de fichier" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}>
+        <option value="">Tous les types</option>
+        {Object.entries(mimeCategoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+      <select aria-label="Filtrer par date de dépôt" value={periodFilter} onChange={event => setPeriodFilter(event.target.value)}>
+        <option value="">Toutes les dates</option>
+        <option value="7j">7 derniers jours</option>
+        <option value="30j">30 derniers jours</option>
+        <option value="12m">12 derniers mois</option>
       </select>
       {canDelete && <select aria-label="Afficher la corbeille" value={filters.deleted ? 'corbeille' : 'actifs'} onChange={event => setFilters(old => ({ ...old, deleted: event.target.value === 'corbeille' }))}>
         <option value="actifs">Documents actifs</option>
