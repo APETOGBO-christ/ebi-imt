@@ -34,6 +34,7 @@ Les modules Prospects, Commerciaux, Activités, Imports, Offres, Propositions, C
 - [docs/procedures-exploitation.md](docs/procedures-exploitation.md) : sauvegarde, restauration, mise à jour, entretien hebdomadaire, incidents connus.
 - [docs/rapport-final-production.md](docs/rapport-final-production.md) : bilan des tests, actions opérateur restantes, risques connus.
 - [docs/security-audit.md](docs/security-audit.md) : revue de sécurité (deux passes) et durcissement (migrations 32-33).
+- [docs/memo-couts-decisions.md](docs/memo-couts-decisions.md) : inventaire des décisions à coût (règle 15 — signalement immédiat).
 
 ## Base locale
 
