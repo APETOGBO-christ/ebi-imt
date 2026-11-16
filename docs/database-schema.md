@@ -1,6 +1,6 @@
 ﻿# Schéma de base de données — EBI-IMT Business Manager
 
-Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-32, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (32/32) ; ce document reste la référence unique.
+Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-33, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (33/33) ; ce document reste la référence unique.
 
 ## 1. Organisation générale
 
@@ -46,6 +46,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 30 | `20261114121630_tenders_expansion.sql` | **EBI-IMT Appels d'offres étendu** — `tenders` +5 colonnes (`description/publication_date/estimated_amount_xof/our_amount_xof/responsible_id`), rename `observations`, CHECK 10 statuts (`identifie|a_analyser|en_preparation|attente_documents|pret_deposer|depose|en_evaluation|gagne|perdu|annule`) ; `tender_documents/tender_tasks/tender_reminder/tender_comments` (4 tables, RLS full CRUD) ; `orders.tender_id` + `commercial_proposals.tender_id` ; RPC redéfinies + `order_set_tender`/`proposal_set_tender` |
 | 31 | `20261114122031_tender_items_products.sql` | **EBI-IMT DAO ↔ produits** — `tender_items.offer_template_id` FK `offer_templates` (additive, on delete set null) + index ; `tender_item_add` 6→7 arguments (produit actif vérifié), ancienne signature supprimée |
 | 32 | `20261114123032_security_hardening_audit.sql` | **EBI-IMT Durcissement sécurité** — `audit_logs` : porte FOR ALL supprimée (SELECT admin uniquement, revoke INSERT/UPDATE/DELETE/TRUNCATE) ; revoke TRUNCATE global (toutes tables publiques) ; porte Storage recréée AS RESTRICTIVE (profil actif exigé sur tout bucket) ; revoke EXECUTE à `anon` sur 16 fonctions |
+| 33 | `20261114124033_auth_event_logging.sql` | **EBI-IMT Journalisation auth** — RPC `log_auth_event('login'/'logout')` SECURITY DEFINER (entrées `auth_login`/`auth_logout` dans `audit_logs`) ; appelée par le client à SIGNED_IN et avant signOut ; anon révoqué |
 
 ## 3. Types énumérés
 
@@ -215,9 +216,9 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 ---
 
-# Partie 2 — Extensions EBI-IMT (migrations 16-32, PROMPT 2/3/4 + appels d'offres + sécurité)
+# Partie 2 — Extensions EBI-IMT (migrations 16-33, PROMPT 2/3/4 + appels d'offres + sécurité)
 
-> Statut : **appliqué** (32/32 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
+> Statut : **appliqué** (33/33 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
 
 ## 9. Tables des extensions (27)
 

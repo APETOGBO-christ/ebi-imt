@@ -91,3 +91,32 @@ Le code est prêt (inscriptions fermées, invitations admin, D2), mais le régla
 
 ## 6. Contrôle des corrections
 La migration `20261114123032_security_hardening_audit.sql` (32/32 appliquée) est atomique, non destructive et documentée avec retour arrière. Les retests ont été exécutés immédiatement après application (§ 3 et § 4).
+
+## 7. Revue complémentaire — passe 2 (2026-11-16, migration 33)
+
+Deuxième passe sur les exigences restées incomplètes, avec re-vérification des correctifs M32.
+
+### Correctifs M32 revalidés
+- Session authentifiée sans profil actif → **0 ligne** sur toutes les tables (porte active_profile_gate) ; `tenders`/`documents` probes ✓.
+- Catalogue : 0 fonction exécutable à `anon` (hors `ebi_signup_ready` prévu pour) ; porte Storage = `RESTRICTIVE ALL` ; grants `audit_logs` = SELECT uniquement.
+
+### S8 (Moyenne → corrigée) — Connexions/déconnexions non journalisées
+- **Constat** : la spécification exige la journalisation des connexions ; `audit_logs` ne recevait aucune entrée de connexion (M32 a verrouillé l'écriture directe, rendant impossible une insertion client).
+- **Correction (migration 33)** : RPC `log_auth_event('login'|'logout')` SECURITY DEFINER (revoke `anon`, liste blanche d'actions, ressource = profil de l'utilisateur) ; le client journalise à `SIGNED_IN` (pas de doublon à la restauration de session locale) et **avant** `signOut()`.
+- **Tests** : appel anonyme → **401** ; appel en session authentifiée simulée → entrée `auth_login` créée dans `audit_logs` ✓.
+- **Échecs d'authentification** : décision documentée — ils restent dans les journaux GoTrue du tableau de bord (aucune identité exploitable côté base ; une RPC publique d'échecs serait un vecteur de spam). L'exigence « échecs pertinents » est couverte par les mécanismes natifs Supabase + l'audit de toute opération admin échouée (portes aal2/admin_caller_gate).
+
+### Vérifications d'isolation et de divulgation (passe 2)
+- **Isolation inter-utilisateurs** : `leads_select` = `crm_active() AND (can_manage_all() OR assigned_to = uid)` — un commercial ne voit que ses propres leads ; même scopage sur activités/rendez-vous/relances/commandes (créateur/assigné) avec audit automatique par trigger. Aucun accès entre utilisateurs non autorisé.
+- **Changements de permissions** : trigger `crm_audit_role_permissions` sur la matrice + audit des RPC `set_profile_role`/`admin_set_profile_active`/invitations — toute modification de permission est journalisée (utilisateur, action, date, ressource).
+- **Liens signés R2** : TTL **600 s (download) / 900 s (upload)** (`_shared/r2client.ts`), émission toujours précédée de `requireUser` + RPC `document_download_allowed` (permits + `deleted_at is null`) + entrée `document_access_logs`.
+- **Suppressions abusives** : documents = corbeille logique (`deleted_at`, restaurable, auditable) ; commandes confirmées immuables (trigger) ; ledger/supplier_payments append-only ; TRUNCATE révoqué partout (M32).
+- **Attaques classiques** : XSS — React échappe par défaut, aucun `dangerouslySetInnerHTML`/`eval` (balayage) ; injection SQL — requêtes PostgREST paramétrées, corps PL/pgSQL sans SQL dynamique utilisateur ; CSRF — jeton en en-tête Authorization, aucun cookie de session applicatif.
+
+### Résiduel accepté (mis à jour)
+- **Jetons de session dans localStorage** (stockage Supabase Auth par défaut) : risque conditionné à une XSS — surface réduite à néant côté app (voir XSS ci-dessus) ; alternative `secureStorage` si exigence direction.
+- **Consultations sensibles** : téléchargements/aperçus de documents journalisés (`document_access_logs`) ; les consultations de lignes SQL ne sont pas journalisées (coût/bruit — choix documenté, réévaluable par RPC si exigé).
+- S4-S7 inchangées (réglages console, CORS, rate-limiting, CSP/HSTS — actions de mise en production).
+
+### Conclusion de la passe 2
+Les exigences « journalisation des connexions » et « isolation inter-utilisateurs » sont désormais **démontrées par tests**. Le journal est complet : identité, action, date (`created_at`), ressource (`entity_table`/`entity_id`), non modifiable, non supprimable, non tronquable par un utilisateur standard.

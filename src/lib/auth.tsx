@@ -38,9 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (sessionError) setError(sessionError.message)
       if (!data.session && active) setLoading(false)
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (!active) return
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (!active || !supabase) return
       setSession(next)
+      // Journal d'audit : une entrée par connexion réelle (SIGNED_IN ne se déclenche
+      // pas lors d'une restauration de session depuis le stockage local).
+      if (event === 'SIGNED_IN') void supabase.rpc('log_auth_event', { p_action: 'login' }).then(
+        result => { if (result.error) console.warn('Journalisation de connexion indisponible.') },
+      )
       // Seule la déconnexion réarme l'état ici : recharger loading=true à chaque
       // événement (SIGNED_IN dupliqué, TOKEN_REFRESHED) bloquait l'espace sur le
       // spinner si l'événement arrivait après le chargement du profil.
@@ -54,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     if (!supabase) return
+    const logged = await supabase.rpc('log_auth_event', { p_action: 'logout' })
+    void logged
     const { error: signOutError } = await supabase.auth.signOut()
     if (signOutError) setError(signOutError.message)
   }
