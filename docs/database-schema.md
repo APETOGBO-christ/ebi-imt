@@ -1,6 +1,6 @@
 ﻿# Schéma de base de données — EBI-IMT Business Manager
 
-Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-33, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (33/33) ; ce document reste la référence unique.
+Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-34, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth + correctif statut)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (34/34) ; ce document reste la référence unique.
 
 ## 1. Organisation générale
 
@@ -47,6 +47,7 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 31 | `20261114122031_tender_items_products.sql` | **EBI-IMT DAO ↔ produits** — `tender_items.offer_template_id` FK `offer_templates` (additive, on delete set null) + index ; `tender_item_add` 6→7 arguments (produit actif vérifié), ancienne signature supprimée |
 | 32 | `20261114123032_security_hardening_audit.sql` | **EBI-IMT Durcissement sécurité** — `audit_logs` : porte FOR ALL supprimée (SELECT admin uniquement, revoke INSERT/UPDATE/DELETE/TRUNCATE) ; revoke TRUNCATE global (toutes tables publiques) ; porte Storage recréée AS RESTRICTIVE (profil actif exigé sur tout bucket) ; revoke EXECUTE à `anon` sur 16 fonctions |
 | 33 | `20261114124033_auth_event_logging.sql` | **EBI-IMT Journalisation auth** — RPC `log_auth_event('login'/'logout')` SECURITY DEFINER (entrées `auth_login`/`auth_logout` dans `audit_logs`) ; appelée par le client à SIGNED_IN et avant signOut ; anon révoqué |
+| 34 | `20261114124334_tenders_status_default.sql` | **EBI-IMT Correctif bloquant** — défaut de `tenders.status` corrigé : `'preparing'` (M17, hors contrainte depuis M30) → `'identifie'` (début du cycle) ; détecté par l'E2E de mise en production, repassé ensuite |
 
 ## 3. Types énumérés
 
@@ -218,7 +219,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 # Partie 2 — Extensions EBI-IMT (migrations 16-33, PROMPT 2/3/4 + appels d'offres + sécurité)
 
-> Statut : **appliqué** (33/33 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
+> Statut : **appliqué** (34/34 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
 
 ## 9. Tables des extensions (27)
 

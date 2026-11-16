@@ -26,7 +26,14 @@ La clé publiée dans `VITE_SUPABASE_PUBLISHABLE_KEY` doit être la clé publiqu
 
 L'interface contient la connexion Supabase, les routes protégées, les KPI soumis à RLS, six zones isométriques sélectionnables, un panneau contextuel et une navigation 2D. La vue 2D est proposée par défaut sur petit écran et utilisée si WebGL n'est pas disponible.
 
-Les modules Prospects, Commerciaux, Activités, Imports, Offres, Propositions, Commandes, Paiements, Dépenses, Commissions et Rapports sont raccordés aux données Supabase. Les parcours sont décrits dans [docs/finance.md](docs/finance.md) et [docs/field-finance.md](docs/field-finance.md). Les modules Appels d'offres, Projets, Achats, Livraisons, Facturation, Bibliothèque documentaire, Utilisateurs et Journal d'activité sont planifiés par phases dans [docs/architecture-ebi-imt.md](docs/architecture-ebi-imt.md). Il n'y a pas de données simulées dans le frontend.
+Les modules Prospects, Commerciaux, Activités, Imports, Offres, Propositions, Commandes, Paiements, Dépenses, Commissions et Rapports sont raccordés aux données Supabase. Les parcours sont décrits dans [docs/finance.md](docs/finance.md) et [docs/field-finance.md](docs/field-finance.md). Les modules Appels d'offres, Projets, Achats, Livraisons, Facturation, Bibliothèque documentaire, Utilisateurs et Journal d'activité sont décrits dans [docs/architecture-ebi-imt.md](docs/architecture-ebi-imt.md). Il n'y a pas de données simulées dans le frontend.
+
+## Mise en production et exploitation
+
+- [docs/mise-en-production.md](docs/mise-en-production.md) : déploiement (Supabase, Pages, R2, domaine) et checklist de vérification.
+- [docs/procedures-exploitation.md](docs/procedures-exploitation.md) : sauvegarde, restauration, mise à jour, entretien hebdomadaire, incidents connus.
+- [docs/rapport-final-production.md](docs/rapport-final-production.md) : bilan des tests, actions opérateur restantes, risques connus.
+- [docs/security-audit.md](docs/security-audit.md) : revue de sécurité (deux passes) et durcissement (migrations 32-33).
 
 ## Base locale
 
