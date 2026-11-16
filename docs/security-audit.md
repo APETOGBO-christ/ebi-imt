@@ -120,3 +120,35 @@ Deuxième passe sur les exigences restées incomplètes, avec re-vérification d
 
 ### Conclusion de la passe 2
 Les exigences « journalisation des connexions » et « isolation inter-utilisateurs » sont désormais **démontrées par tests**. Le journal est complet : identité, action, date (`created_at`), ressource (`entity_table`/`entity_id`), non modifiable, non supprimable, non tronquable par un utilisateur standard.
+
+## 8. Revue complémentaire — conformité PROMPT 3 (2026-11-16, migrations 35-37)
+
+Troisième passe consacrée aux six rôles de l'architecture v2 (admin, direction, commercial, achats, finance, lecture_seule) sur l'ensemble du socle hérité.
+
+### Constatations (avant corrections)
+- La matrice v2 (`role_permissions`) portait déjà les six rôles, mais l'**enum `app_role` du socle n'en comptait que trois** (admin/sales_manager/sales_rep) : un profil `direction` provoquait une erreur de cast (`22P02`) dans `current_app_role()` — les nouvelles invitations auraient été **bloquées par toutes les politiques du socle**.
+- `can_manage_all()` (utilisé en lecture ET écriture) ignorait `direction` : la lecture transversale exigée pour la direction était impossible.
+- `crm_audit_row()` exigeait une colonne `id` : la matrice `role_permissions` (clé composite) n'était **jamais modifiable**, même par un administrateur.
+
+### Corrections (migrations 35-37)
+- **M35** : enum étendu (4 valeurs) ; `can_read_all()` = lecture transversale pour admin/direction/sales_manager, appliquée à 19 politiques SELECT ; `payments` ouvert à `permits('paiements','select')` (finance), `orders` à `permits('achats','select')` (achats) ; ~30 fonctions v1 mises à jour (direction dans les contrôles superviseur, finance dans la vérification financière, cibles élargies : commercial, finance) ; `confirm_payment` délégué à `finance_can_verify()`.
+- **M36** : valeur `commercial` de l'enum (omise en M35).
+- **M37** : `crm_audit_row()` sans exigence de colonne `id` (matrice modifiable et auditée) ; matrice resserrée (`p_update` paiements retiré à commercial/finance).
+
+### Batterie de conformité PROMPT 3 § 5 (15/15 — transactions annulées, aucune donnée de test persistée)
+| Scénario | Résultat |
+|---|---|
+| Admin sans MFA → opération sensible | refusé : « second facteur (MFA) requis » |
+| Commercial → modification d'un paiement | refusé : RLS + matrice |
+| Lecture_seule → suppression | refusé : 0 ligne + RPC « permission de modification requise » |
+| Utilisateur désactivé → accès | 0 ligne partout + RPC refusée |
+| Auto-attribution de rôle / modification directe de la matrice | refusé : « only an admin may change application roles » / 0 ligne |
+| Consultation hors périmètre (lead d'un autre commercial) | 0 ligne |
+| Protection du dernier administrateur (+ auto-désactivation) | refusée |
+| Direction : lecture transversale sans écriture | démontrée (`can_read_all`, `manage_all=false`) |
+| Finance : lecture + validation des paiements | démontrées (`user_permits`) |
+| INSERT direct en lecture_seule (porte RESTRICTIVE) | refusé |
+
+### Résiduel de cette passe
+- **pgTAP** : les scénarios § 5 du PROMPT 3 sont couverts par cette batterie SQL reproductible (`tmp/battery-prompt3.sql`) ; les suites pgTAP (94+39) restent à exécuter (Docker).
+- Les réglages console Supabase (inscriptions publiques désactivées, MFA à l'inscription) restent des actions opérateur (§ 2 de `docs/mise-en-production.md`).

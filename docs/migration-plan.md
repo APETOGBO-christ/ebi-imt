@@ -9,12 +9,12 @@ Stratégie de mise en place d'un projet Supabase **neuf** pour EBI-IMT, établie
 | Ancien projet (cortexiagroup) | Lié historiquement, 3/15 migrations appliquées, abandonné — **aucune opération** |
 | Lien CLI local | Lié au projet neuf `xxilfzpkdwggfilwyrjw` (EBI Manager) — ancien ref `qyyvgmndcaroywkyefdf` jamais touché |
 | `.env.local` | URL + clé publishable du projet neuf (aucune clé service côté frontend) |
-| Migrations locales | **34** applicables depuis zéro (15 socle + 19 extensions EBI-IMT, 70 tables) |
+| Migrations locales | **37** applicables depuis zéro (15 socle + 22 extensions EBI-IMT, 70 tables) |
 | Code | typecheck OK, 46/46 tests Vitest OK, build OK (preuves dans `docs/audit-final.md` § 7) |
 
 ## 2. Ordre d'application des migrations
 
-Les **34** fichiers s'appliquent dans l'ordre chronologique de leur horodatage (convention `supabase db push`) : migrations 1-15 = socle Cortexia audité, migrations **16-34 = extensions EBI-IMT** (PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth + correctif statut). État attendu après push complet : **70 tables** (42 socle + 28 extensions), 16 enums (+1 valeur `library_document` en M26), 5 séquences socle + table `official_sequences`, 4 buckets Storage, ~65 RPC métier publiques, RLS intégral avec porte `active_profile_gate` sur chaque table d'extension. Le point de contrôle exact est défini dans `docs/phase-0-checklist.md` (V4-V5).
+Les **37** fichiers s'appliquent dans l'ordre chronologique de leur horodatage (convention `supabase db push`) : migrations 1-15 = socle Cortexia audité, migrations **16-37 = extensions EBI-IMT** (PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth + compatibilité des six rôles). État attendu après push complet : **70 tables** (42 socle + 28 extensions), 16 enums (+1 valeur `library_document` en M26), 5 séquences socle + table `official_sequences`, 4 buckets Storage, ~65 RPC métier publiques, RLS intégral avec porte `active_profile_gate` sur chaque table d'extension. Le point de contrôle exact est défini dans `docs/phase-0-checklist.md` (V4-V5).
 
 Particularités à connaître avant le push :
 
@@ -72,7 +72,7 @@ Variante acceptée pour 1-2 : une migration additive supplémentaire (`update fi
 
 ## 5. Migrations 16-33 — extensions EBI-IMT (PROMPT 2/3/4 + appels d'offres + sécurité)
 
-Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 puis 28/28 corrective, 29/29 Phase 3, 30/30 appels d'offres étendu, 31/31 lignes-produits, 32/32 durcissement sécurité, 33/33 journalisation auth et 34/34 correctif statut, sur autorisation du commanditaire) après quatre corrections en place : M16 (drop/recréation de `profiles_insert` dépendante de la bascule du type de colonne), M25 (`coalesce` est un mot-clé — suppression des `pg_catalog.coalesce` invalides et qualification des built-ins dans les corps `search_path = ''`), M26 (trigger `crm_audit_companies` déjà créé par le socle — redondance retirée), puis migration 28 additive (corps `pg_catalog.nullif` invalides remplacés — voir ligne 28 du § 5). Chaque en-tête SQL détaille objectif/tables/dépendances/risques/retour arrière ; synthèse opérationnelle :
+Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 puis 28/28 corrective, 29/29 Phase 3, 30/30 appels d'offres étendu, 31/31 lignes-produits, 32/32 durcissement sécurité, 33/33 journalisation auth, 34/34 correctif statut et 35-37/37 compatibilité des six rôles + correctifs de test, sur autorisation du commanditaire) après quatre corrections en place : M16 (drop/recréation de `profiles_insert` dépendante de la bascule du type de colonne), M25 (`coalesce` est un mot-clé — suppression des `pg_catalog.coalesce` invalides et qualification des built-ins dans les corps `search_path = ''`), M26 (trigger `crm_audit_companies` déjà créé par le socle — redondance retirée), puis migration 28 additive (corps `pg_catalog.nullif` invalides remplacés — voir ligne 28 du § 5). Chaque en-tête SQL détaille objectif/tables/dépendances/risques/retour arrière ; synthèse opérationnelle :
 
 | # | Fichier | Objectif | Tables / objets | Dépendances | Risques principaux | Retour arrière |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -95,6 +95,9 @@ Fichiers appliqués au projet neuf `xxilfzpkdwggfilwyrjw` le 2026-11-13 (27/27 p
 | 32 | `20261114123032_security_hardening_audit.sql` | Durcissement issu de la revue de cybersécurité (`docs/security-audit.md`) | `audit_logs` : porte FOR ALL supprimée, SELECT admin uniquement, revoke INSERT/UPDATE/DELETE/REFERENCES/TRIGGER ; **revoke TRUNCATE global** (toutes tables publiques, `authenticated`+`anon`) ; porte storage recréée **AS RESTRICTIVE** (profil actif exigé partout) ; revoke EXECUTE à `anon` sur 16 fonctions | M1-M4 (audit_logs, triggers), M15 (porte storage), M17-M25 | Journal non modifiable/tronquable ; preuves de paiement/terrain re-sous politiques ciblées | Recréer les politiques/grants (cités dans le fichier) — déconseillé : c'est la faille |
 | 33 | `20261114124033_auth_event_logging.sql` | Journalisation des connexions/déconnexions | RPC `log_auth_event('login'/'logout')` SECURITY DEFINER : insère `auth_login`/`auth_logout` dans `audit_logs` (actor = session, ressource = profil) ; appelée par `src/lib/auth.tsx` (SIGNED_IN, avant signOut) | M32 (audit_logs verrouillé, écriture par SECURITY DEFINER) | Revoke anon (un utilisateur authentifié seulement) ; liste blanche d'actions ; échecs d'auth = journaux GoTrue du tableau de bord (décision documentée) | Drop function |
 | 34 | `20261114124334_tenders_status_default.sql` | **Correctif bloquant** (découvert en mise en production) | Défaut de `tenders.status` resté à `'preparing'` (M17, valeur anglaise) après le passage aux 10 statuts français (M30) → toute création d'appel d'offres échouait ; défaut corrigé en `'identifie'` (début du cycle), E2E complet repassé | M17 (table), M30 (liste de statuts) | Aucune donnée touchée (défaut seul) | Défaut `'preparing'` (déconseillé : valeur hors contrainte) |
+| 35 | `20261114130035_role_compat_v2.sql` | **Compatibilité des six rôles v2 avec le socle v1** | Enum `app_role` étendu (+direction/achats/finance/lecture_seule) ; `can_read_all()` (lecture transversale direction, sans écriture) ; 19 politiques SELECT passées de `can_manage_all()` à `can_read_all()` ; paiements ouverts à `permits('paiements','select')`, ordres à `permits('achats','select')` ; ~30 fonctions v1 : direction ajoutée aux contrôles superviseur, finance acceptée pour la vérification, cibles élargies (commercial/finance) ; `confirm_payment` délégué à `finance_can_verify()` | M17-M25 (socle), M25 (matrice six rôles) | Rôles v1 conservés (sales_manager/sales_rep) ; écritures inchangées (matrice = source de vérité) | Recréer politiques/fonctions depuis M17-M25 (déconseillé) |
+| 36 | `20261114130136_app_role_commercial.sql` | Correctif enum : valeur `commercial` manquante | M35 avait étendu l'enum sans le rôle `commercial` (profils commerciaux v2) | M35 | Aucun | — |
+| 37 | `20261114131037_matrix_commercial_payments.sql` | **Correctifs matrice + audit** | `crm_audit_row()` n'exige plus de colonne `id` (role_permissions, clé composite, était intouchable) ; matrice : `p_update` sur `paiements` retiré à commercial et finance (les paiements ne se modifient que via RPC finance_*) | M25 (matrice+triggers), M35/36 | Audit plus complet (entity_id null pour tables sans id, contenu old/new conservé) | Rétablir l'ancienne fonction/matrice (déconseillé) |
 
 Invariant respecté par toutes : RLS activé + politique SELECT `permits()` + porte restrictive `active_profile_gate` recréée + `anon` révoqué + grants SELECT à `authenticated` + écritures directes révoquées (hors UPDATE/INSERT admin sur `role_permissions`, encadrés admin+MFA, M25). Numérotation et transitions : `docs/database-relations.md` § 10 et § 12 ; modèle de sécurité : `docs/security-model.md`.
 
@@ -122,7 +125,7 @@ psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase\tests\pgm4_phase1
 # 3. Projet distant NEUF uniquement
 supabase link --project-ref <ref-neuf>                    # vérifier le ref !
 supabase migration list --linked                          # 0 migration attendue
-supabase db push --dry-run; supabase db push              # 34/34 attendu
+supabase db push --dry-run; supabase db push              # 37/37 attendu
 supabase gen types typescript --linked > src\types\database.ts
 
 # 4. Edge
