@@ -1,6 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { ArrowRight, ChevronDown, CircleHelp, Compass, Gavel, Building2, BadgePercent, MonitorPlay, LayoutGrid, LogOut, Menu, RotateCcw, ShieldCheck, X, UsersRound, ShoppingBag, WalletCards } from 'lucide-react'
+import { ArrowRight, ChevronDown, CircleHelp, Compass, Gavel, Building2, BadgePercent, MonitorPlay, LayoutGrid, LogOut, Menu, RotateCcw, ShieldCheck, X, UsersRound, ShoppingBag, WalletCards, BarChart3 } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { useAuth, roleLabels } from './lib/auth'
 import { getDashboardStats, getInspectionData, getRecentActivities, getRecentDeliveries, getUpcomingDeadlines, type DashboardStats, type InspectionData, type RecentActivity, type RecentDelivery, type UpcomingDeadline } from './lib/dashboard'
@@ -36,6 +36,7 @@ import { MfaCard } from './security/MfaCard'
 import { activityTypeLabels } from './societes/types'
 import { ProductionPage } from './production/ProductionPage'
 import { SettingsPage } from './settings/SettingsPage'
+import { DirectionPage } from './direction/DirectionPage'
 
 const CommandScene = lazy(() => import('./components/CommandScene'))
 const zoneModule = (id: ZoneId) => modules.find(module => module.id === zones.find(zone => zone.id === id)?.moduleId)!
@@ -75,6 +76,14 @@ function Login() {
     if (error) setMessage(error.message)
     setPending(false)
   }
+  async function handleForgot() {
+    if (!supabase) return
+    if (!email.trim()) { setMessage('Renseignez votre adresse e-mail puis cliquez sur « Mot de passe oublié ? ».'); return }
+    setPending(true); setMessage(null)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/connexion` })
+    setMessage(resetError ? resetError.message : 'E-mail de récupération envoyé : suivez le lien reçu pour définir un nouveau mot de passe.')
+    setPending(false)
+  }
   return <AuthFrame>
       <form className="login-form" onSubmit={handleSubmit}><span className="section-kicker">ACCÈS SÉCURISÉ</span><h2>Connexion</h2><p>Connectez-vous avec votre adresse e-mail et votre mot de passe.</p>
         <label htmlFor="email">Adresse e-mail</label><input id="email" type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} placeholder="nom@ebi-imt.com" />
@@ -82,6 +91,7 @@ function Login() {
         {message && <div className="form-error" role="alert">{message}</div>}
         {!supabase && <div className="form-error" role="alert">Connexion Supabase non configurée. Renseignez VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY.</div>}
         <Button type="submit" disabled={!supabase || pending}>{pending ? 'Connexion en cours…' : 'Se connecter'} <ArrowRight size={17} /></Button>
+        <div className="login-form-footer"><button type="button" className="crm-link" onClick={() => void handleForgot()}>Mot de passe oublié ?</button></div>
         <div className="login-form-footer">Pas encore de compte ? <Link to="/inscription">S’inscrire</Link></div>
       </form>
   </AuthFrame>
@@ -146,7 +156,19 @@ function Protected({ children }: { children: ReactNode }) {
 function Shell({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth()
   const location = useLocation()
-  const current = modules.find(module => module.path === location.pathname || (module.path !== '/' && location.pathname.startsWith(`${module.path}/`))) ?? modules[0]
+  const [enabledModules, setEnabledModules] = useState<string[] | null>(null)
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      if (!supabase) return
+      const { data } = await supabase.from('app_settings').select('enabled_modules').eq('id', 1).maybeSingle()
+      if (active) setEnabledModules((data as { enabled_modules: string[] | null } | null)?.enabled_modules ?? null)
+    })()
+    return () => { active = false }
+  }, [])
+  const visibleModules = modules.filter(module => !enabledModules || enabledModules.length === 0 || enabledModules.includes(module.id) || module.id === 'settings')
+  const current = visibleModules.find(module => module.path === location.pathname || (module.path !== '/' && location.pathname.startsWith(`${module.path}/`))) ?? modules[0]
+  const isDirectionView = location.pathname === '/direction'
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   useEffect(() => setMenuOpen(false), [location.pathname])
@@ -155,7 +177,7 @@ function Shell({ children }: { children: ReactNode }) {
       <Link to="/" className="top-brand"><Logo /><span>EBI-IMT <strong>Business</strong> Manager</span></Link>
       <span className="top-divider" />
       <Button variant="ghost" size="icon" className="mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Ouvrir les modules"><Menu size={21} /></Button>
-      <div className="breadcrumb"><span>ESPACE DE TRAVAIL</span><strong>{current.label}</strong></div>
+      <div className="breadcrumb"><span>ESPACE DE TRAVAIL</span><strong>{isDirectionView ? 'Vue direction' : current.label}</strong></div>
       <div className="top-spacer" />
       <GlobalSearch />
       <Notifications />
@@ -164,7 +186,9 @@ function Shell({ children }: { children: ReactNode }) {
     </header>
     <aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-caption">NAVIGATION</div>
-      <nav aria-label="Modules EBI-IMT">{modules.map(module => <NavLink key={module.id} to={module.path} end={module.id === 'dashboard'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><module.icon size={18} strokeWidth={1.9} /><span>{module.label}</span></NavLink>)}</nav>
+      <nav aria-label="Modules EBI-IMT">{visibleModules.map(module => <NavLink key={module.id} to={module.path} end={module.id === 'dashboard'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><module.icon size={18} strokeWidth={1.9} /><span>{module.label}</span></NavLink>)}
+        {(profile?.role === 'admin' || profile?.role === 'direction') && <NavLink to="/direction" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><BarChart3 size={18} strokeWidth={1.9} /><span>Vue direction</span></NavLink>}
+      </nav>
       <div className="sidebar-bottom"><div className="sidebar-help"><CircleHelp size={19} /><div><strong>Besoin d’aide ?</strong><small>Contactez votre administrateur.</small></div></div><span>EBI-IMT MANAGER</span></div>
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Fermer les modules" onClick={() => setMenuOpen(false)} />}
@@ -300,6 +324,7 @@ export default function App() {
     <Route path="/bibliotheque" element={page(<BibliothequePage />)} />
     <Route path="/production" element={page(<ProductionPage />)} />
     <Route path="/parametres" element={page(<SettingsPage />)} />
+    <Route path="/direction" element={page(<DirectionPage />)} />
     <Route path="/securite" element={page(
       <div className="module-page"><div className="page-heading"><div><span className="section-kicker">ESPACE DE TRAVAIL</span><h1>Sécurité du compte</h1><p>Double validation (MFA), exigée des administrateurs pour les opérations sensibles.</p></div></div><MfaCard /></div>
     )} />

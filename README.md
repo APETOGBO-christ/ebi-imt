@@ -33,7 +33,8 @@ Les modules Prospects, Commerciaux, Activités, Imports, Offres, Propositions, C
 - [docs/mise-en-production.md](docs/mise-en-production.md) : déploiement (Supabase, Pages, R2, domaine) et checklist de vérification.
 - [docs/procedures-exploitation.md](docs/procedures-exploitation.md) : sauvegarde, restauration, mise à jour, entretien hebdomadaire, incidents connus.
 - [docs/rapport-final-production.md](docs/rapport-final-production.md) : bilan des tests, actions opérateur restantes, risques connus.
-- [docs/security-audit.md](docs/security-audit.md) : revue de sécurité (deux passes) et durcissement (migrations 32-33).
+- [docs/security-audit.md](docs/security-audit.md) : revue de sécurité (trois passes) et durcissement (migrations 32-40).
+- [docs/user-gouvernance.md](docs/user-gouvernance.md) : guide des utilisateurs, du journal d'activité et des paramètres généraux (PROMPT 5).
 - [docs/memo-couts-decisions.md](docs/memo-couts-decisions.md) : inventaire des décisions à coût (règle 15 — signalement immédiat).
 
 ## Base locale

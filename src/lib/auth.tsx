@@ -74,4 +74,5 @@ export function useAuth() {
 
 export const roleLabels: Record<Profile['role'], string> = {
   admin: 'Administrateur', sales_manager: 'Responsable commercial', sales_rep: 'Commercial',
+  commercial: 'Commercial', direction: 'Direction', achats: 'Achats', finance: 'Finance', lecture_seule: 'Lecture seule',
 }

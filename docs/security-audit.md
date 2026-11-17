@@ -152,3 +152,12 @@ Troisième passe consacrée aux six rôles de l'architecture v2 (admin, directio
 ### Résiduel de cette passe
 - **pgTAP** : les scénarios § 5 du PROMPT 3 sont couverts par cette batterie SQL reproductible (`tmp/battery-prompt3.sql`) ; les suites pgTAP (94+39) restent à exécuter (Docker).
 - Les réglages console Supabase (inscriptions publiques désactivées, MFA à l'inscription) restent des actions opérateur (§ 2 de `docs/mise-en-production.md`).
+
+## 9. Revue PROMPT 5 — gouvernance (2026-11-16, migrations 38-40)
+
+### Vérifications
+- Journal `audit_logs` **append-only** (policy SELECT `can_read_all` uniquement ; INSERT/UPDATE/DELETE refusés côté utilisateurs ; écritures via SECURITY DEFINER). 13 triggers CRM + audit dédié `app_settings`/`library_categories` + `role_change` + actions `admin_user_*` + `auth_login`/`auth_logout`.
+- Batterie PROMPT 5 (`tmp/battery-prompt5.sql`) : **7/7 PASS** — direction lit les paramètres, écriture refusée ; journal lisible par la direction ; catégories refusées à la direction, gérées par l'admin ; modification admin journalisée.
+- Révocation de sessions : ban Auth + désactivation profil (`active_profile_gate` bloque immédiatement les données) ; les jetons déjà émis restent valides ≤ 1 h (limite GoTrue, documentée).
+- Réinitialisation d'accès : procédure sécurisée « Mot de passe oublié ? » (e-mail GoTrue) ; aucun secret/jeton/lien n'est affiché dans l'interface ; `recover` Edge (lien à l'admin habilité aal2) reste un recours d'urgence documenté.
+- Statut MFA interrogé en direct via GoTrue admin (sans exposer de secret) ; réinitialisation MFA journalisée.

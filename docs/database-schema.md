@@ -1,6 +1,6 @@
-﻿# Schéma de base de données — EBI-IMT Business Manager
+# Schéma de base de données — EBI-IMT Business Manager
 
-Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-37, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth + compatibilité des six rôles)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (37/37) ; ce document reste la référence unique.
+Référence complète du schéma, établie par lecture intégrale des migrations : § 1-8 = socle (15 migrations, audit du 12 novembre 2026) ; **Partie 2 (§ 9-12) = extensions EBI-IMT (migrations 16-40, PROMPT 2/3/4 + module appels d'offres étendu + durcissement sécurité + journalisation auth + compatibilité des six rôles)**. Tout est appliqué au projet neuf `xxilfzpkdwggfilwyrjw` (40/40) ; ce document reste la référence unique.
 
 ## 1. Organisation générale
 
@@ -51,6 +51,9 @@ Référence complète du schéma, établie par lecture intégrale des migrations
 | 35 | `20261114130035_role_compat_v2.sql` | **EBI-IMT Compatibilité six rôles** — enum `app_role` étendu (direction/achats/finance/lecture_seule) ; `can_read_all()` lecture transversale direction (19 politiques SELECT) ; paiements/ordres ouverts via `permits` ; ~30 fonctions v1 avec `direction`/`finance` intégrés aux contrôles ; rôles v1 (sales_manager/sales_rep) conservés |
 | 36 | `20261114130136_app_role_commercial.sql` | **EBI-IMT Correctif enum** — valeur `commercial` ajoutée (omise en M35) |
 | 37 | `20261114131037_matrix_commercial_payments.sql` | **EBI-IMT Correctifs matrice + audit** — `crm_audit_row()` sans exigence de colonne `id` (role_permissions modifiable) ; `p_update` paiements retiré à commercial/finance (écriture via RPC uniquement) |
+| 38 | `20261116120000_app_settings.sql` | **EBI-IMT Paramètres généraux (PROMPT 5)** — singleton `app_settings` (infos officielles, logo, préférences, devise XOF, conservation, finance, modules) + `library_categories` ; RLS lecture transversale / écriture admin ; audit complet |
+| 39 | `20261116120500_settings_audit_fix.sql` | **EBI-IMT Correctif audit settings** — fonction dédiée `crm_audit_settings_row()` (entity_id null, id smallint incompatible avec le cast uuid) |
+| 40 | `20261116121000_settings_audit_definer.sql` | **EBI-IMT Correctif SECURITY DEFINER** — `crm_audit_settings_row()` en défineur (INSERT audit_logs refusé en invoker) |
 
 ## 3. Types énumérés
 
@@ -222,7 +225,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 # Partie 2 — Extensions EBI-IMT (migrations 16-33, PROMPT 2/3/4 + appels d'offres + sécurité)
 
-> Statut : **appliqué** (37/37 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
+> Statut : **appliqué** (40/40 au projet `xxilfzpkdwggfilwyrjw`, 2026-11-13). Chaque migration porte en en-tête son objectif, ses tables, ses dépendances, ses risques et son retour arrière (détail opérationnel dans `docs/migration-plan.md` § 5). Relations complètes et transitions : `docs/database-relations.md`. Revue de sécurité : `docs/security-audit.md`.
 
 ## 9. Tables des extensions (27)
 

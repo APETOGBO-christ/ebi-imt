@@ -2,6 +2,9 @@
 import { supabase } from '../lib/supabase'
 import { usePermits } from '../lib/permissions'
 import type { Profile } from '../types/domain'
+import { invokeAdminAction, lastLoginByActor, type UserStatus } from './api'
+import { SettingsJournal } from './SettingsJournal'
+import { SettingsGeneral } from './SettingsGeneral'
 
 interface RoleOption { code: string; label: string }
 interface ProfileRow extends Profile { phone: string | null; joined_at: string | null }
@@ -28,6 +31,8 @@ const sequenceLabels: Record<string, string> = { dao: 'Appels d’offres', pro: 
 
 function SettingsUsers({ roles, canEdit }: { roles: RoleOption[]; canEdit: boolean }) {
   const [rows, setRows] = useState<ProfileRow[]>([])
+  const [lastLogins, setLastLogins] = useState<Record<string, string>>({})
+  const [statuses, setStatuses] = useState<Record<string, UserStatus | null>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -41,6 +46,17 @@ function SettingsUsers({ roles, canEdit }: { roles: RoleOption[]; canEdit: boole
       const result = await supabase.from('profiles').select('id, full_name, role, is_active, phone, joined_at').order('full_name')
       if (result.error) throw new Error(result.error.message)
       setRows((result.data ?? []) as ProfileRow[])
+      const [logins, fetched] = await Promise.all([
+        lastLoginByActor().catch(() => ({} as Record<string, string>)),
+        Promise.all(((result.data ?? []) as ProfileRow[]).map(async row => {
+          try {
+            const status = await invokeAdminAction({ action: 'status', user_id: row.id })
+            return [row.id, status] as const
+          } catch { return [row.id, null] as const }
+        })),
+      ])
+      setLastLogins(logins)
+      setStatuses(Object.fromEntries(fetched))
       setError(null)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Chargement impossible.') } finally { setLoading(false) }
   }, [])
@@ -66,6 +82,24 @@ function SettingsUsers({ roles, canEdit }: { roles: RoleOption[]; canEdit: boole
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Action impossible.') } finally { setPending(null) }
   }
 
+  async function revoke(row: ProfileRow) {
+    setPending(row.id); setError(null); setNotice(null)
+    try {
+      await invokeAdminAction({ action: 'revoke_sessions', user_id: row.id })
+      setNotice(`${row.full_name} : sessions révoquées et compte bloqué côté Auth.`)
+      refresh()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Action impossible.') } finally { setPending(null) }
+  }
+
+  async function resetMfa(row: ProfileRow) {
+    setPending(row.id); setError(null); setNotice(null)
+    try {
+      const result = await invokeAdminAction({ action: 'reset_mfa', user_id: row.id })
+      setNotice(`${row.full_name} : ${result ? 'facteurs MFA supprimés' : 'aucun facteur'}, l’utilisateur réinscrira son second facteur.`)
+      refresh()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Action impossible.') } finally { setPending(null) }
+  }
+
   async function sendInvite() {
     if (!invite.email.trim() || !invite.full_name.trim()) { setError('E-mail et nom complet obligatoires.'); return }
     setPending('invite'); setError(null); setNotice(null)
@@ -75,6 +109,17 @@ function SettingsUsers({ roles, canEdit }: { roles: RoleOption[]; canEdit: boole
       setNotice(`Invitation envoyée à ${invite.email.trim()}. L’invité devra activer la double validation (MFA).`)
       setInvite({ email: '', full_name: '', role: 'commercial' })
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Invitation impossible.') } finally { setPending(null) }
+  }
+
+  function formatLast(row: ProfileRow): string {
+    const iso = lastLogins[row.id] ?? statuses[row.id]?.last_sign_in_at ?? null
+    return iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+  }
+  function mfaBadge(row: ProfileRow): string {
+    const status = statuses[row.id]
+    if (!status) return '…'
+    if (status.mfa_verified > 0) return 'MFA actif'
+    return status.mfa_factors > 0 ? 'MFA à confirmer' : 'Sans MFA'
   }
 
   return <div className="set-users">
@@ -90,7 +135,7 @@ function SettingsUsers({ roles, canEdit }: { roles: RoleOption[]; canEdit: boole
     </form>}
     {loading ? <div className="crm-empty">Chargement des utilisateurs.</div> : <div className="crm-table-wrap">
       <table className="crm-table">
-        <thead><tr><th>Utilisateur</th><th>Téléphone</th><th>Rôle</th><th>Accès</th>{canEdit && <th />}</tr></thead>
+        <thead><tr><th>Utilisateur</th><th>Téléphone</th><th>Rôle</th><th>Accès</th><th>MFA</th><th>Dernière activité</th>{canEdit && <th />}</tr></thead>
         <tbody>{rows.map(row => <tr key={row.id}>
           <td><strong>{row.full_name}</strong></td>
           <td>{row.phone ?? '—'}</td>
@@ -98,10 +143,17 @@ function SettingsUsers({ roles, canEdit }: { roles: RoleOption[]; canEdit: boole
             {roles.map(option => <option key={option.code} value={option.code}>{option.label}</option>)}
           </select> : moduleLabels[row.role] ?? row.role}</td>
           <td><span className={`crm-status ${row.is_active ? 'crm-status-won' : 'crm-status-cancelled'}`}>{row.is_active ? 'Actif' : 'Désactivé'}</span></td>
-          {canEdit && <td><button type="button" disabled={pending === row.id} onClick={() => void setActive(row, !row.is_active)}>{row.is_active ? 'Désactiver' : 'Réactiver'}</button></td>}
+          <td><span className={`crm-status ${statuses[row.id]?.mfa_verified ? 'crm-status-won' : 'crm-status-cancelled'}`}>{mfaBadge(row)}</span></td>
+          <td>{formatLast(row)}</td>
+          {canEdit && <td className="crm-row-actions">
+            <button type="button" disabled={pending === row.id} onClick={() => void setActive(row, !row.is_active)}>{row.is_active ? 'Désactiver' : 'Réactiver'}</button>
+            {row.is_active && <button type="button" disabled={pending === row.id} onClick={() => void revoke(row)}>Révoquer</button>}
+            <button type="button" disabled={pending === row.id} onClick={() => void resetMfa(row)}>Réinitialiser MFA</button>
+          </td>}
         </tr>)}
         </tbody>
       </table>
+      <p className="crm-hint">Réinitialisation d’un accès : l’utilisateur utilise « Mot de passe oublié ? » sur la page de connexion (e-mail de récupération). Les secrets d’authentification ne sont jamais affichés ici.</p>
       {rows.length === 0 && <div className="crm-empty">Aucun utilisateur référencé.</div>}
     </div>}
   </div>
@@ -201,7 +253,7 @@ function SettingsSequences() {
 
 export function SettingsPage() {
   const { can, loading: permitsLoading } = usePermits()
-  const [tab, setTab] = useState<'users' | 'permissions' | 'sequences'>('users')
+  const [tab, setTab] = useState<'users' | 'permissions' | 'journal' | 'general' | 'sequences'>('users')
   const [roles, setRoles] = useState<RoleOption[]>([])
   const [rolesError, setRolesError] = useState<string | null>(null)
   useEffect(() => {
@@ -224,10 +276,14 @@ export function SettingsPage() {
     <div className="set-tabs" role="tablist">
       <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Utilisateurs</button>
       <button type="button" className={tab === 'permissions' ? 'active' : ''} onClick={() => setTab('permissions')}>Permissions</button>
+      <button type="button" className={tab === 'journal' ? 'active' : ''} onClick={() => setTab('journal')}>Journal</button>
+      <button type="button" className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Général</button>
       <button type="button" className={tab === 'sequences' ? 'active' : ''} onClick={() => setTab('sequences')}>Numérotation</button>
     </div>
     {tab === 'users' && <SettingsUsers roles={roles} canEdit={canEditUsers} />}
     {tab === 'permissions' && <SettingsPermissions roles={roles} editable={canEditMatrix} />}
+    {tab === 'journal' && <SettingsJournal />}
+    {tab === 'general' && <SettingsGeneral editable={canEditMatrix} />}
     {tab === 'sequences' && <SettingsSequences />}
   </div>
 }

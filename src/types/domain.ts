@@ -1,5 +1,5 @@
 /** Domain types used until `supabase gen types typescript --local` is available. */
-export type AppRole = 'admin' | 'sales_manager' | 'sales_rep'
+export type AppRole = 'admin' | 'sales_manager' | 'sales_rep' | 'commercial' | 'direction' | 'achats' | 'finance' | 'lecture_seule'
 export type LeadStatus = 'new' | 'qualified' | 'contacted' | 'meeting' | 'demo' | 'proposal' | 'won' | 'lost' | 'archived'
 export type OrderStatus = 'draft' | 'confirmed' | 'cancelled' | 'completed'
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected' | 'refunded' | 'corrected'

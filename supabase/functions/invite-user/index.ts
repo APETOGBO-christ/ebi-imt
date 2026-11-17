@@ -6,7 +6,7 @@ const response = (status: number, body: Record<string, unknown>) => new Response
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const INVITABLE_ROLES = ['admin', 'direction', 'commercial', 'achats', 'finance', 'lecture_seule']
-const ACTIONS = ['invite', 'activate', 'deactivate', 'revoke_sessions', 'reactivate', 'recover', 'reset_mfa'] as const
+const ACTIONS = ['invite', 'activate', 'deactivate', 'revoke_sessions', 'reactivate', 'recover', 'reset_mfa', 'status'] as const
 type Action = typeof ACTIONS[number]
 
 interface Payload {
@@ -150,6 +150,21 @@ Deno.serve(async request => {
       }
       auditAdmin(admin, 'admin_user_mfa_reset', userId, { removed })
       return response(200, { removed })
+    }
+
+    if (action === 'status') {
+      const { data: factors, error: listError } = await admin.auth.admin.mfa.listFactors(userId)
+      if (listError) return response(409, { error: listError.message ?? 'Consultation des facteurs impossible.' })
+      const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId)
+      if (userError || !userData.user) return response(409, { error: userError?.message ?? 'Utilisateur introuvable.' })
+      const user = userData.user
+      return response(200, {
+        mfa_factors: factors.factors?.length ?? 0,
+        mfa_verified: (factors.factors ?? []).filter(factor => factor.status === 'verified').length,
+        banned_until: user.banned_until ?? null,
+        last_sign_in_at: user.last_sign_in_at ?? null,
+        email_confirmed: Boolean(user.email_confirmed_at),
+      })
     }
 
     return response(400, { error: 'Action inconnue.' })
