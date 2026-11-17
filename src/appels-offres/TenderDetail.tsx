@@ -6,16 +6,19 @@ import { downloadUrl } from '../bibliotheque/api'
 import { usePermits } from '../lib/permissions'
 import {
   addTenderComment, addTenderItem, addTenderReminder, addTenderTask, attachTenderDocument,
-  getTender, linkOrder, linkProposal, listCompanyOptions, listLinkableOrders, listLinkableProposals,
-  listProductOptions, listResponsibleOptions, removeTenderDocument, removeTenderItem, removeTenderTask,
-  setTenderQuote, setTenderReminderDone, setTenderStatus, setTenderTaskDone, type ProductOption, type TenderDetail,
+  createProjectFromTender, getTender, linkOrder, linkProposal, listCompanyOptions, listLinkableOrders,
+  listLinkableProposals, listProductOptions, listResponsibleOptions, removeTenderDocument, removeTenderItem,
+  removeTenderTask, selectTenderSupplier, setTenderQuote, setTenderReminderDone, setTenderStatus,
+  setTenderTaskDone, type ProductOption, type TenderDetail,
 } from './api'
+import { fetchAppSettings } from '../settings/api'
 import {
-  allowedTransitions, companyLabel, firstEmbed, shortDate, tenderCategoryLabels, tenderEventLabels,
-  tenderStatusClass, tenderStatusLabels, terminalStatuses, xof, type TenderCategory, type TenderStatus,
+  allowedTransitions, availabilityLabels, companyLabel, firstEmbed, shortDate, tenderCategoryLabels,
+  tenderEventLabels, tenderItemCategoryLabels, tenderStatusClass, tenderStatusLabels, tenderTotals,
+  terminalStatuses, xof, type TenderCategory, type TenderStatus,
 } from './types'
 
-const editablesStatuses: TenderStatus[] = ['identifie', 'a_analyser', 'en_preparation', 'attente_documents', 'pret_deposer']
+const editablesStatuses: TenderStatus[] = ['identifie', 'a_analyser', 'en_analyse', 'decision_soumission', 'en_preparation', 'en_validation', 'attente_documents', 'pret_deposer']
 const orderStatusLabels: Record<string, string> = { draft: 'Brouillon', confirmed: 'Confirmée', cancelled: 'Annulée', completed: 'Terminée' }
 const proposalStatusLabels: Record<string, string> = { draft: 'Brouillon', pending_approval: 'À valider', approved: 'Validée', sent: 'Envoyée', accepted: 'Acceptée', rejected: 'Refusée', cancelled: 'Annulée' }
 const deliveryStatusLabels: Record<string, string> = { planned: 'Planifiée', in_transit: 'En transit', delivered: 'Livrée', partial: 'Partielle', cancelled: 'Annulée' }
@@ -31,8 +34,11 @@ export function TenderDetail() {
   const [wonAmount, setWonAmount] = useState('')
   const [lostReason, setLostReason] = useState('')
   const [targetStatus, setTargetStatus] = useState<TenderStatus | ''>('')
-  const [newItem, setNewItem] = useState({ product: '', designation: '', quantity: '1', unit: '', unitPrice: '', notes: '' })
-  const [quoteDraft, setQuoteDraft] = useState<{ itemId: string; supplier: string; amount: string } | null>(null)
+  const [newItem, setNewItem] = useState({ product: '', designation: '', quantity: '1', unit: '', unitPrice: '', notes: '', category: '' })
+  const [quoteDraft, setQuoteDraft] = useState<{ itemId: string; supplier: string; amount: string; brand: string; transport: string; lead: string; warranty: string; availability: string; source: string; notes: string } | null>(null)
+  const [selectDraft, setSelectDraft] = useState<{ itemId: string; supplier: string; reason: string } | null>(null)
+  const [projectDraft, setProjectDraft] = useState<{ title: string; budget: string; start: string; plannedEnd: string } | null>(null)
+  const [vatRate, setVatRate] = useState(18)
   const [suppliers, setSuppliers] = useState<{ id: string; label: string }[]>([])
   const [people, setPeople] = useState<{ id: string; label: string }[]>([])
   const [docDraft, setDocDraft] = useState<{ category: TenderCategory; title: string; file: File | null }>({ category: 'dao', title: '', file: null })
@@ -45,6 +51,10 @@ export function TenderDetail() {
   const refresh = useCallback(() => {
     if (!id) return
     setLoading(true)
+    fetchAppSettings().then(settings => {
+      const vat = settings?.finance?.default_vat_pct
+      if (typeof vat === 'number' && vat >= 0) setVatRate(vat)
+    }).catch(() => undefined)
     Promise.all([getTender(id), listCompanyOptions(), listResponsibleOptions(), listLinkableOrders(), listLinkableProposals(), listProductOptions()])
       .then(([detail, options, persons, orders, proposals, products]) => {
         setDetail(detail)
@@ -76,6 +86,7 @@ export function TenderDetail() {
   const canAct = canEdit || can('appels_offres', 'validate')
   const transitions = allowedTransitions[status]
   const totalItems = detail.items.reduce((sum, item) => sum + Number(item.amount_xof), 0)
+  const totals = tenderTotals(detail.items, vatRate)
   const responsible = firstEmbed(tender.profiles)
 
   async function act(action: () => Promise<void>, message: string) {
@@ -111,8 +122,10 @@ export function TenderDetail() {
         p_unit_price_xof: Number(newItem.unitPrice),
         p_notes: newItem.notes.trim() || null,
         p_offer_template_id: newItem.product || null,
+        p_item_category: newItem.category || null,
+        p_specs: null,
       })
-      setNewItem({ product: '', designation: '', quantity: '1', unit: '', unitPrice: '', notes: '' })
+      setNewItem({ product: '', designation: '', quantity: '1', unit: '', unitPrice: '', notes: '', category: '' })
     }, 'Ligne ajoutée.')
   }
 
@@ -129,10 +142,60 @@ export function TenderDetail() {
   function submitQuote(event: FormEvent) {
     event.preventDefault()
     if (!quoteDraft || !quoteDraft.supplier || !quoteDraft.amount) { setError('Fournisseur et montant obligatoires.'); return }
+    const amount = Number(quoteDraft.amount)
+    if (!Number.isFinite(amount) || amount <= 0) { setError('Montant du devis invalide.'); return }
     void act(async () => {
-      await setTenderQuote(quoteDraft.itemId, quoteDraft.supplier, Number(quoteDraft.amount), null, null)
+      await setTenderQuote(quoteDraft.itemId, quoteDraft.supplier, amount, {
+        p_source: quoteDraft.source.trim() || null,
+        p_notes: quoteDraft.notes.trim() || null,
+        p_brand_model: quoteDraft.brand.trim() || null,
+        p_transport_cost_xof: quoteDraft.transport ? Number(quoteDraft.transport) : 0,
+        p_lead_time_days: quoteDraft.lead ? Number(quoteDraft.lead) : null,
+        p_warranty_months: quoteDraft.warranty ? Number(quoteDraft.warranty) : null,
+        p_availability: quoteDraft.availability || null,
+      })
       setQuoteDraft(null)
     }, 'Devis fournisseur enregistré.')
+  }
+
+  function submitSelection(event: FormEvent) {
+    event.preventDefault()
+    if (!selectDraft || !selectDraft.supplier) { setError('Choisissez le fournisseur à retenir.'); return }
+    if (!selectDraft.reason.trim() || selectDraft.reason.trim().length < 10) { setError('Justifiez le choix (10 caractères minimum).'); return }
+    void act(async () => {
+      await selectTenderSupplier(selectDraft.itemId, selectDraft.supplier, selectDraft.reason.trim())
+      setSelectDraft(null)
+    }, 'Fournisseur retenu.')
+  }
+
+  function openProjectForm() {
+    const organism = firstEmbed(tender.companies)
+    setProjectDraft({
+      title: tender.title,
+      budget: tender.awarded_amount_xof != null ? String(tender.awarded_amount_xof) : '',
+      start: '',
+      plannedEnd: '',
+    })
+    void organism
+  }
+
+  function submitProject(event: FormEvent) {
+    event.preventDefault()
+    if (!projectDraft || !projectDraft.title.trim()) { setError('Titre du projet requis.'); return }
+    const organism = firstEmbed(tender.companies)
+    if (!organism || !tender.organism_company_id) { setError('Organisme du DAO inconnu : impossible de rattacher un client au projet.'); return }
+    void act(async () => {
+      await createProjectFromTender({
+        p_title: projectDraft.title.trim(),
+        p_client_company_id: tender.organism_company_id,
+        p_tender_id: tender.id,
+        p_manager_id: tender.responsible_id,
+        p_budget_xof: projectDraft.budget ? Number(projectDraft.budget.replace(/\s/g, '')) : null,
+        p_start_date: projectDraft.start || null,
+        p_planned_end_date: projectDraft.plannedEnd || null,
+      })
+      setProjectDraft(null)
+    }, 'Projet créé à partir de l’appel d’offres gagné.')
   }
 
   function submitDocument(event: FormEvent) {
@@ -189,11 +252,31 @@ export function TenderDetail() {
           <div><span>Notre offre</span><strong>{xof(tender.our_amount_xof)}</strong></div>
           {tender.awarded_amount_xof != null && <div><span>Montant du marché</span><strong>{xof(tender.awarded_amount_xof)}</strong></div>}
           <div><span>Total des lignes</span><strong>{xof(totalItems)}</strong></div>
+          <div><span>Total HT</span><strong>{xof(totals.ht)}</strong></div>
+          <div><span>TVA ({vatRate} %)</span><strong>{xof(totals.tva)}</strong></div>
+          <div><span>Total TTC</span><strong>{xof(totals.ttc)}</strong></div>
+          {tender.announcement_url && <div className="dao-fact-wide"><span>Annonce</span><strong><a href={tender.announcement_url} target="_blank" rel="noopener noreferrer">Consulter l’annonce</a></strong></div>}
+          {tender.submission_location && <div className="dao-fact-wide"><span>Lieu / plateforme de dépôt</span><strong>{tender.submission_location}</strong></div>}
           {tender.lost_reason && <div className="dao-fact-wide"><span>Motif de l’échec</span><strong>{tender.lost_reason}</strong></div>}
         </div>
         {tender.description && <p className="dao-notes"><strong>Description.</strong> {tender.description}</p>}
         {tender.observations && <p className="dao-notes"><strong>Observations.</strong> {tender.observations}</p>}
       </section>
+
+      {status === 'gagne' && canEdit && <section className="dao-panel">
+        <h2>Projet issu du marché</h2>
+        {projectDraft
+          ? <form className="crm-inline-form" onSubmit={submitProject}>
+              <input required placeholder="Titre du projet" value={projectDraft.title} onChange={event => setProjectDraft(old => old && { ...old, title: event.target.value })} />
+              <input inputMode="numeric" placeholder="Budget (FCFA)" value={projectDraft.budget} onChange={event => setProjectDraft(old => old && { ...old, budget: event.target.value })} />
+              <input type="date" aria-label="Date de début" value={projectDraft.start} onChange={event => setProjectDraft(old => old && { ...old, start: event.target.value })} />
+              <input type="date" aria-label="Fin prévue" value={projectDraft.plannedEnd} onChange={event => setProjectDraft(old => old && { ...old, plannedEnd: event.target.value })} />
+              <Button type="submit" disabled={pending}>Créer le projet</Button>
+              <Button type="button" variant="ghost" onClick={() => setProjectDraft(null)}>Annuler</Button>
+            </form>
+          : <Button variant="secondary" onClick={openProjectForm}><Plus size={15} /> Créer un projet depuis ce marché</Button>}
+        {detail.linkedOrders.length > 0 && <p className="dao-notes" style={{ marginTop: 8 }}><strong>Commandes liées :</strong> {detail.linkedOrders.map(order => order.order_number).join(', ')} — le suivi opérationnel est déjà ouvert.</p>}
+      </section>}
 
       <section className="dao-panel">
         <h2>Documents du dossier</h2>
@@ -228,14 +311,21 @@ export function TenderDetail() {
         <div className="crm-table-wrap">
           <table className="crm-table">
             <thead><tr><th>#</th><th>Désignation</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th>{canItems && canEdit && <th />}</tr></thead>
-            <tbody>{detail.items.map(item => <tr key={item.id}>
+            <tbody>{detail.items.map(item => {
+              const selected = item.selected_supplier ? firstEmbed(item.selected_supplier) : null
+              return <tr key={item.id}>
               <td>{item.position}</td>
-              <td><strong>{item.designation}</strong>{firstEmbed(item.offer_templates)?.name && <small>Produit : {firstEmbed(item.offer_templates)!.name}</small>}{item.notes && <small>{item.notes}</small>}</td>
+              <td><strong>{item.designation}</strong>
+                {item.item_category && <small>Catégorie : {tenderItemCategoryLabels[item.item_category] ?? item.item_category}</small>}
+                {firstEmbed(item.offer_templates)?.name && <small>Produit : {firstEmbed(item.offer_templates)!.name}</small>}
+                {item.notes && <small>{item.notes}</small>}
+                {selected && <small>Fournisseur retenu : {companyLabel(selected)}{item.selected_reason ? ` — ${item.selected_reason}` : ''}</small>}
+              </td>
               <td>{item.quantity} {item.unit ?? ''}</td>
               <td>{xof(item.unit_price_xof)}</td>
               <td>{xof(item.amount_xof)}</td>
               {canItems && canEdit && <td><button aria-label={`Retirer ${item.designation}`} onClick={() => void act(() => removeTenderItem(item.id), 'Ligne retirée.')}><Trash2 size={15} /></button></td>}
-            </tr>)}
+            </tr>})}
             </tbody>
           </table>
           {detail.items.length === 0 && <div className="crm-empty">Aucune ligne enregistrée.</div>}
@@ -246,6 +336,10 @@ export function TenderDetail() {
             {products.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
           </select>
           <input required placeholder="Désignation" value={newItem.designation} onChange={event => setNewItem(old => ({ ...old, designation: event.target.value }))} />
+          <select aria-label="Catégorie de ligne" value={newItem.category} onChange={event => setNewItem(old => ({ ...old, category: event.target.value }))}>
+            <option value="">Catégorie…</option>
+            {Object.entries(tenderItemCategoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
           <input inputMode="decimal" placeholder="Qté" value={newItem.quantity} onChange={event => setNewItem(old => ({ ...old, quantity: event.target.value }))} />
           <input placeholder="Unité" value={newItem.unit} onChange={event => setNewItem(old => ({ ...old, unit: event.target.value }))} />
           <input required inputMode="numeric" placeholder="Prix unitaire (FCFA)" value={newItem.unitPrice} onChange={event => setNewItem(old => ({ ...old, unitPrice: event.target.value }))} />
@@ -257,14 +351,19 @@ export function TenderDetail() {
         <h2>Devis fournisseurs</h2>
         <div className="crm-table-wrap">
           <table className="crm-table">
-            <thead><tr><th>Fournisseur</th><th>Ligne</th><th>Montant</th>{canItems && canEdit && <th />}</tr></thead>
+            <thead><tr><th>Fournisseur</th><th>Ligne</th><th>Montant</th><th>Marque / modèle</th><th>Transport</th><th>Délai</th><th>Garantie</th><th>Dispo.</th>{canItems && canEdit && <th />}</tr></thead>
             <tbody>{detail.quotes.map(quote => {
               const item = detail.items.find(candidate => candidate.id === quote.tender_item_id)
               return <tr key={quote.id}>
-                <td><strong>{companyLabel(firstEmbed(quote.companies))}</strong></td>
+                <td><strong>{companyLabel(firstEmbed(quote.companies))}</strong>{quote.quote_document_id && <small>Devis joint en bibliothèque</small>}</td>
                 <td>{item?.designation ?? '—'}</td>
                 <td>{xof(quote.quote_xof)}</td>
-                {canItems && canEdit && <td><button aria-label="Remplacer ce devis" onClick={() => setQuoteDraft({ itemId: quote.tender_item_id, supplier: quote.supplier_company_id, amount: String(quote.quote_xof) })}>Modifier</button></td>}
+                <td>{quote.brand_model ?? '—'}</td>
+                <td>{quote.transport_cost_xof != null && Number(quote.transport_cost_xof) > 0 ? xof(quote.transport_cost_xof) : '—'}</td>
+                <td>{quote.lead_time_days != null ? `${quote.lead_time_days} j` : '—'}</td>
+                <td>{quote.warranty_months != null ? `${quote.warranty_months} mois` : '—'}</td>
+                <td>{quote.availability ? (availabilityLabels[quote.availability] ?? quote.availability) : '—'}</td>
+                {canItems && canEdit && <td><button aria-label="Remplacer ce devis" onClick={() => setQuoteDraft({ itemId: quote.tender_item_id, supplier: quote.supplier_company_id, amount: String(quote.quote_xof), brand: quote.brand_model ?? '', transport: quote.transport_cost_xof != null ? String(quote.transport_cost_xof) : '', lead: quote.lead_time_days != null ? String(quote.lead_time_days) : '', warranty: quote.warranty_months != null ? String(quote.warranty_months) : '', availability: quote.availability ?? '', source: quote.source ?? '', notes: quote.notes ?? '' })}>Modifier</button></td>}
               </tr>
             })}
             </tbody>
@@ -277,13 +376,66 @@ export function TenderDetail() {
                 <option value="">Fournisseur</option>
                 {suppliers.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
+              <select required aria-label="Ligne concernée" value={quoteDraft.itemId} onChange={event => setQuoteDraft(old => old && { ...old, itemId: event.target.value })}>
+                {detail.items.map(item => <option key={item.id} value={item.id}>#{item.position} — {item.designation}</option>)}
+              </select>
               <input required inputMode="numeric" placeholder="Montant du devis (FCFA)" value={quoteDraft.amount} onChange={event => setQuoteDraft(old => old && { ...old, amount: event.target.value })} />
+              <input placeholder="Marque / modèle" value={quoteDraft.brand} onChange={event => setQuoteDraft(old => old && { ...old, brand: event.target.value })} />
+              <input inputMode="numeric" placeholder="Transport (FCFA)" value={quoteDraft.transport} onChange={event => setQuoteDraft(old => old && { ...old, transport: event.target.value })} />
+              <input inputMode="numeric" placeholder="Délai (jours)" value={quoteDraft.lead} onChange={event => setQuoteDraft(old => old && { ...old, lead: event.target.value })} />
+              <input inputMode="numeric" placeholder="Garantie (mois)" value={quoteDraft.warranty} onChange={event => setQuoteDraft(old => old && { ...old, warranty: event.target.value })} />
+              <select aria-label="Disponibilité" value={quoteDraft.availability} onChange={event => setQuoteDraft(old => old && { ...old, availability: event.target.value })}>
+                <option value="">Disponibilité…</option>
+                {Object.entries(availabilityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <input placeholder="Source du devis" value={quoteDraft.source} onChange={event => setQuoteDraft(old => old && { ...old, source: event.target.value })} />
+              <input placeholder="Notes" value={quoteDraft.notes} onChange={event => setQuoteDraft(old => old && { ...old, notes: event.target.value })} />
               <Button type="submit" disabled={pending}>Enregistrer</Button>
               <Button type="button" variant="ghost" onClick={() => setQuoteDraft(null)}>Annuler</Button>
             </form>
-          : <form onSubmit={event => { event.preventDefault(); if (detail.items[0]) setQuoteDraft({ itemId: detail.items[0].id, supplier: '', amount: '' }) }}>
+          : <form onSubmit={event => { event.preventDefault(); if (detail.items[0]) setQuoteDraft({ itemId: detail.items[0].id, supplier: '', amount: '', brand: '', transport: '', lead: '', warranty: '', availability: '', source: '', notes: '' }) }}>
               <Button type="submit" variant="secondary" disabled={detail.items.length === 0}><Plus size={15} /> Ajouter un devis</Button>
             </form>)}
+      </section>
+
+      <section className="dao-panel">
+        <h2>Comparaison des fournisseurs</h2>
+        {detail.items.length === 0 ? <div className="crm-empty">Ajoutez des lignes pour comparer les offres.</div> : detail.items.map(item => {
+          const quotes = detail.quotes.filter(quote => quote.tender_item_id === item.id)
+          const best = quotes.reduce((lowest, quote) => Number(quote.quote_xof) < Number(lowest.quote_xof) ? quote : lowest, quotes[0])
+          const selected = item.selected_supplier ? firstEmbed(item.selected_supplier) : null
+          return <div key={item.id} className="dao-subhead" style={{ marginBottom: 8 }}>
+            <strong>#{item.position} — {item.designation}</strong>
+            {selected && <small style={{ marginLeft: 6 }}>Fournisseur retenu : {companyLabel(selected)}</small>}
+            {quotes.length === 0 ? <div className="crm-empty" style={{ marginTop: 6 }}>Aucun devis pour cette ligne.</div> : <div className="crm-table-wrap" style={{ marginTop: 6 }}>
+              <table className="crm-table">
+                <thead><tr><th>Fournisseur</th><th>Montant</th><th>Marque / modèle</th><th>Transport</th><th>Délai</th><th>Garantie</th><th>Dispo.</th><th>Notes</th>{canItems && canEdit && <th />}</tr></thead>
+                <tbody>{quotes.map(quote => <tr key={quote.id}>
+                  <td><strong>{companyLabel(firstEmbed(quote.companies))}</strong>{best && quote.id === best.id && <small>Moins-disant</small>}</td>
+                  <td>{xof(quote.quote_xof)}</td>
+                  <td>{quote.brand_model ?? '—'}</td>
+                  <td>{quote.transport_cost_xof != null && Number(quote.transport_cost_xof) > 0 ? xof(quote.transport_cost_xof) : '—'}</td>
+                  <td>{quote.lead_time_days != null ? `${quote.lead_time_days} j` : '—'}</td>
+                  <td>{quote.warranty_months != null ? `${quote.warranty_months} mois` : '—'}</td>
+                  <td>{quote.availability ? (availabilityLabels[quote.availability] ?? quote.availability) : '—'}</td>
+                  <td>{quote.notes ?? quote.source ?? '—'}</td>
+                  {canItems && canEdit && <td>{selectDraft?.itemId === item.id
+                    ? <form className="dao-select-form" onSubmit={submitSelection}>
+                        <select required aria-label={`Fournisseur à retenir pour ${item.designation}`} value={selectDraft.supplier} onChange={event => setSelectDraft(old => old && { ...old, supplier: event.target.value })}>
+                          <option value="">Fournisseur…</option>
+                          {quotes.map(quote2 => <option key={quote2.id} value={quote2.supplier_company_id}>{companyLabel(firstEmbed(quote2.companies))}</option>)}
+                        </select>
+                        <input required placeholder="Justification du choix (10 car. min)" value={selectDraft.reason} onChange={event => setSelectDraft(old => old && { ...old, reason: event.target.value })} />
+                        <Button type="submit" disabled={pending}>Retenir</Button>
+                        <Button type="button" variant="ghost" onClick={() => setSelectDraft(null)}>Annuler</Button>
+                      </form>
+                    : <button onClick={() => setSelectDraft({ itemId: item.id, supplier: '', reason: '' })}>Retenir…</button>}</td>}
+                </tr>)}
+                </tbody>
+              </table>
+            </div>}
+          </div>
+        })}
       </section>
 
       <section className="dao-panel">

@@ -9,6 +9,10 @@ import { firstEmbed } from './types'
 export interface TenderFilters {
   search: string
   status: '' | TenderStatus
+  organism: string
+  responsible: string
+  /** Échéance à venir : nombre de jours (7, 30, 90). Vide = toutes. */
+  period: '' | '7d' | '30d' | '90d'
   sort: 'deadline' | 'created' | 'number'
   dir: 'asc' | 'desc'
   page: number
@@ -32,6 +36,14 @@ export async function listTenders(filters: TenderFilters): Promise<TenderListRes
   const search = filters.search.trim()
   if (search) query = query.or(`title.ilike.%${search}%,tender_number.ilike.%${search}%`)
   if (filters.status) query = query.eq('status', filters.status)
+  if (filters.organism) query = query.eq('organism_company_id', filters.organism)
+  if (filters.responsible) query = query.eq('responsible_id', filters.responsible)
+  if (filters.period) {
+    const days = filters.period === '7d' ? 7 : filters.period === '30d' ? 30 : 90
+    const start = new Date()
+    const end = new Date(Date.now() + days * 86400000)
+    query = query.gte('submission_deadline', start.toISOString()).lte('submission_deadline', end.toISOString())
+  }
   const column = filters.sort === 'deadline' ? 'submission_deadline' : filters.sort === 'number' ? 'tender_number' : 'created_at'
   query = query.order(column, { ascending: filters.dir === 'asc' }).order('id')
   const from = filters.page * filters.pageSize
@@ -152,6 +164,8 @@ export interface TenderPayload {
   p_estimated_amount_xof: number | null
   p_our_amount_xof: number | null
   p_responsible_id: string | null
+  p_announcement_url?: string | null
+  p_submission_location?: string | null
 }
 
 export async function createTender(payload: TenderPayload): Promise<string> {
@@ -170,7 +184,7 @@ export async function setTenderStatus(id: string, status: TenderStatus, extra: {
   if (error) throw new Error(error.message)
 }
 
-export async function addTenderItem(tenderId: string, item: { p_designation: string; p_quantity: number; p_unit: string | null; p_unit_price_xof: number; p_notes: string | null; p_offer_template_id: string | null }): Promise<void> {
+export async function addTenderItem(tenderId: string, item: { p_designation: string; p_quantity: number; p_unit: string | null; p_unit_price_xof: number; p_notes: string | null; p_offer_template_id: string | null; p_item_category?: string | null; p_specs?: string | null }): Promise<void> {
   const { error } = await rpc('tender_item_add', { p_tender_id: tenderId, ...item })
   if (error) throw new Error(error.message)
 }
@@ -180,9 +194,41 @@ export async function removeTenderItem(itemId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-export async function setTenderQuote(itemId: string, supplierCompanyId: string, quoteXof: number, source: string | null, notes: string | null): Promise<void> {
-  const { error } = await rpc('tender_quote_set', { p_tender_item_id: itemId, p_supplier_company_id: supplierCompanyId, p_quote_xof: quoteXof, p_source: source, p_notes: notes })
+export interface TenderQuotePayload {
+  p_source: string | null
+  p_notes: string | null
+  p_brand_model?: string | null
+  p_transport_cost_xof?: number
+  p_lead_time_days?: number | null
+  p_warranty_months?: number | null
+  p_availability?: string | null
+  p_quote_document_id?: string | null
+}
+
+export async function setTenderQuote(itemId: string, supplierCompanyId: string, quoteXof: number, payload: TenderQuotePayload): Promise<void> {
+  const { error } = await rpc('tender_quote_set', { p_tender_item_id: itemId, p_supplier_company_id: supplierCompanyId, p_quote_xof: quoteXof, ...payload })
   if (error) throw new Error(error.message)
+}
+
+export async function selectTenderSupplier(itemId: string, supplierCompanyId: string, reason: string): Promise<void> {
+  const { error } = await rpc('tender_item_select_supplier', { p_tender_item_id: itemId, p_supplier_company_id: supplierCompanyId, p_reason: reason })
+  if (error) throw new Error(error.message)
+}
+
+export interface ProjectPayload {
+  p_title: string
+  p_client_company_id: string
+  p_tender_id: string
+  p_manager_id: string | null
+  p_budget_xof: number | null
+  p_start_date: string | null
+  p_planned_end_date: string | null
+}
+
+export async function createProjectFromTender(payload: ProjectPayload): Promise<string> {
+  const { data, error } = await rpc('project_create', payload)
+  if (error) throw new Error(error.message)
+  return String(data)
 }
 
 export async function linkOrder(orderId: string, tenderId: string | null): Promise<void> {

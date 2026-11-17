@@ -303,7 +303,7 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 
 | Module EBI-IMT | Tables principales | Écritures prévues (Phase 3) |
 | --- | --- | --- |
-| Appels d'offres | tenders, tender_items (+offer_template_id), tender_quotes, tender_events, tender_documents, tender_tasks, tender_reminders, tender_comments, documents, companies, profiles, offer_templates | RPC tender_* (création `next_official_number('dao')`, transitions 10 états), suivi en full CRUD, `order_set_tender`/`proposal_set_tender` |
+| Appels d'offres | tenders, tender_items (+offer_template_id), tender_quotes, tender_events, tender_documents, tender_tasks, tender_reminders, tender_comments, documents, companies, profiles, offer_templates | RPC tender_* (création `next_official_number('dao')`, transitions 14 états + sélection fournisseur justifiée + comparaison enrichie (marque/transport/délai/garantie/dispo)), suivi en full CRUD, `order_set_tender`/`proposal_set_tender` |
 | Projets | projects, orders (project_id), tenders | RPC project_* (création, rattachement commande) |
 | Achats | purchase_orders/_lines, supplier_invoices, supplier_payments, _events, company_roles | RPC purchase_*/supplier_* (immutabilité décaissements) |
 | Livraisons | deliveries, delivery_lines, orders, purchase_orders | RPC delivery_* (transitions, réception par ligne) |
@@ -312,3 +312,6 @@ Chaîne critique : `leads → commercial_proposals → orders → payments → f
 | Utilisateurs/Paramètres | roles, role_permissions, profiles, official_sequences, settings | UPDATE matrice par l'admin ; numérotation en lecture |
 
 Chaîne critique étendue : `leads → commercial_proposals → orders → payments → financial_ledger → sales_commission_positions` **et** `tenders → (gagné) → projects → {purchase_orders → supplier_invoices → supplier_payments ; orders.project_id}` **et** `orders/purchase_orders → deliveries` **et** `orders → invoices ← payments`. Préserver l'append-only de tous les journaux.
+
+- **M38-M40 - paramètres** : \pp_settings\ (singleton id=1 : infos officielles, devise XOF verrouillée, \enabled_modules\ text[] — vide = tout, finance \default_vat_pct\) + \library_categories\ ; RLS lecture \can_read_all\ / écriture admin ; audit dédié \crm_audit_settings_row()\ (SECURITY DEFINER).
+- **M41-M44 - appels d''offres v2 (PROMPT 6)** : statuts 14 états (\en_analyse|decision_soumission|en_validation|abandonne\) ; \	enders.announcement_url\ (https)/\submission_location\ ; \	ender_items.item_category\/\specs\/\selected_supplier_company_id\/\selected_reason\ ; \	ender_quotes.brand_model\/\	ransport_cost_xof\/\lead_time_days\/\warranty_months\/\vailability\/\quote_document_id\→documents ; RPC \	ender_item_add\ 9 args, \	ender_quote_set\ 11 args (tender_id dérivé, M43), \	ender_item_select_supplier\ (justification + devis existant) ; surcharges M29-M31 supprimées + grants (M44).

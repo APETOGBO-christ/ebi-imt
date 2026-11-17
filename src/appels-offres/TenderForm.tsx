@@ -29,9 +29,11 @@ interface FormState {
   p_estimated_amount_xof: string
   p_our_amount_xof: string
   p_responsible_id: string
+  p_announcement_url: string
+  p_submission_location: string
 }
 
-const empty: FormState = { p_title: '', p_organism_company_id: '', p_sector: '', p_source: '', p_submission_deadline: '', p_opening_at: '', p_observations: '', p_description: '', p_publication_date: '', p_estimated_amount_xof: '', p_our_amount_xof: '', p_responsible_id: '' }
+const empty: FormState = { p_title: '', p_organism_company_id: '', p_sector: '', p_source: '', p_submission_deadline: '', p_opening_at: '', p_observations: '', p_description: '', p_publication_date: '', p_estimated_amount_xof: '', p_our_amount_xof: '', p_responsible_id: '', p_announcement_url: '', p_submission_location: '' }
 
 export function TenderForm() {
   const { id } = useParams()
@@ -67,6 +69,8 @@ export function TenderForm() {
         p_estimated_amount_xof: tender.estimated_amount_xof != null ? String(tender.estimated_amount_xof) : '',
         p_our_amount_xof: tender.our_amount_xof != null ? String(tender.our_amount_xof) : '',
         p_responsible_id: tender.responsible_id ?? '',
+        p_announcement_url: tender.announcement_url ?? '',
+        p_submission_location: tender.submission_location ?? '',
       })
     }))
     Promise.all(jobs).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Chargement impossible.') }).finally(() => { if (active) setLoading(false) })
@@ -79,6 +83,8 @@ export function TenderForm() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!form.p_title.trim() || !form.p_organism_company_id || !form.p_submission_deadline) { setError('Intitulé, organisme et date limite sont obligatoires.'); return }
+    const announcement = form.p_announcement_url.trim()
+    if (announcement && !announcement.startsWith('https://')) { setError('Le lien de l’annonce doit être une adresse https.'); return }
     setPending(true); setError(null)
     const payload: TenderPayload = {
       p_title: form.p_title.trim(),
@@ -93,6 +99,8 @@ export function TenderForm() {
       p_estimated_amount_xof: form.p_estimated_amount_xof ? Number(form.p_estimated_amount_xof.replace(/\s/g, '')) : null,
       p_our_amount_xof: form.p_our_amount_xof ? Number(form.p_our_amount_xof.replace(/\s/g, '')) : null,
       p_responsible_id: form.p_responsible_id || null,
+      p_announcement_url: announcement || null,
+      p_submission_location: form.p_submission_location.trim() || null,
     }
     try {
       if (editing && id) { await updateTender(id, payload); navigate(`/appels-offres/${id}`) }
@@ -104,7 +112,7 @@ export function TenderForm() {
   }
 
   return <div className="crm-page">
-    <div className="crm-page-head"><div><span className="section-kicker">APPELS D’OFFRES</span><h1>{editing ? 'Modifier le dossier' : 'Nouvel appel d’offres'}</h1><p>{editing ? 'Ajustez le dossier ; un dossier clos (gagné, perdu, annulé) n’est plus modifiable.' : 'Enregistrez l’avis, son échéance de dépôt et le responsable interne.'}</p></div></div>
+    <div className="crm-page-head"><div><span className="section-kicker">APPELS D’OFFRES</span><h1>{editing ? 'Modifier le dossier' : 'Nouvel appel d’offres'}</h1><p>{editing ? 'Ajustez le dossier ; un dossier clos (gagné, perdu, annulé, abandonné) n’est plus modifiable.' : 'Enregistrez l’avis, son échéance de dépôt et le responsable interne.'}</p></div></div>
     {error && <div className="crm-alert" role="alert">{error}</div>}
     <form className="crm-form" onSubmit={submit}>
       <div className="crm-form-section"><h2>Identification</h2><div className="crm-form-grid">
@@ -124,6 +132,10 @@ export function TenderForm() {
           <input value={form.p_sector} onChange={event => setForm(old => ({ ...old, p_sector: event.target.value }))} placeholder="Ex. BTP, énergie, télécoms" /></label>
         <label className="crm-field">Source de l’avis
           <input value={form.p_source} onChange={event => setForm(old => ({ ...old, p_source: event.target.value }))} placeholder="Ex. Presse, portail, contact direct" /></label>
+        <label className="crm-field crm-field-wide">Lien vers l’annonce (https)
+          <input value={form.p_announcement_url} onChange={event => setForm(old => ({ ...old, p_announcement_url: event.target.value }))} placeholder="Ex. https://www.marchespublics.tg/avis/…" /></label>
+        <label className="crm-field crm-field-wide">Lieu ou plateforme de dépôt des plis
+          <input value={form.p_submission_location} onChange={event => setForm(old => ({ ...old, p_submission_location: event.target.value }))} placeholder="Ex. Secrétariat du maître d’ouvrage, Lomé / portail en ligne" /></label>
       </div></div>
       <div className="crm-form-section"><h2>Dates</h2><div className="crm-form-grid">
         <label className="crm-field">Date de publication de l’avis

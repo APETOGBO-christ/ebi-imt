@@ -112,6 +112,23 @@ h1,h2,h3,p{margin-top:0}h1,h2,h3{font-family:Manrope,sans-serif;letter-spacing:-
 .dao-inline-field{display:flex;align-items:center;gap:7px}
 .dao-inline-field input{min-height:39px;border:1px solid #dce6f0;border-radius:8px;padding:8px 11px;font-size:12px;color:#31526f}
 .dao-pagination{display:flex;align-items:center;gap:12px;justify-content:center;margin:15px 0;font-size:12px;color:#5c7893}
+.dao-view-switch{display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #e0e9f2;border-radius:10px;padding:3px}
+.dao-select-form{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dao-select-form input{min-height:34px;border:1px solid #dce6f0;border-radius:8px;padding:6px 9px;font-size:11px;color:#31526f;min-width:200px}
+.dao-kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,1fr);gap:12px;overflow-x:auto;padding-bottom:10px;align-items:start}
+.dao-kanban-col{background:#f6f9fc;border:1px solid #e0e9f2;border-radius:12px;padding:10px;min-width:230px}
+.dao-kanban-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.dao-kanban-head small{font-size:11px;font-weight:800;color:#5c7893}
+.dao-kanban-card{display:block;background:#fff;border:1px solid #e4ecf4;border-radius:10px;padding:10px 12px;margin-bottom:8px;text-decoration:none}
+.dao-kanban-card:hover{border-color:#c5d8ea}
+.dao-kanban-card strong{display:block;font-size:12px;color:#213d59}
+.dao-kanban-card small{display:block;font-size:11px;color:#5c7893;margin-top:2px}
+.dao-kanban-meta{display:block;font-size:10px;color:#8498ac;margin-top:4px}
+.dao-calendar{display:grid;gap:10px}
+.dao-calendar-day{background:#fff;border:1px solid #e0e9f2;border-radius:12px;padding:12px 16px}
+.dao-calendar-overdue{border-color:#f0c7c7;background:#fdf6f6}
+.dao-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.dao-calendar-head strong{font-size:12px;color:#213d59;text-transform:capitalize}
 .dao-timeline{list-style:none;margin:0;padding:0}
 .dao-timeline li{padding:9px 0;border-top:1px solid #edf2f7}
 .dao-timeline li:first-child{border-top:0}

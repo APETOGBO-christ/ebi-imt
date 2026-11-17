@@ -1,20 +1,23 @@
-export type TenderStatus = 'identifie' | 'a_analyser' | 'en_preparation' | 'attente_documents' | 'pret_deposer' | 'depose' | 'en_evaluation' | 'gagne' | 'perdu' | 'annule'
+export type TenderStatus = 'identifie' | 'a_analyser' | 'en_analyse' | 'decision_soumission' | 'en_preparation' | 'en_validation' | 'attente_documents' | 'pret_deposer' | 'depose' | 'en_evaluation' | 'gagne' | 'perdu' | 'annule' | 'abandonne'
 
-export const preDepositStatuses: TenderStatus[] = ['identifie', 'a_analyser', 'en_preparation', 'attente_documents', 'pret_deposer']
+export const preDepositStatuses: TenderStatus[] = ['identifie', 'a_analyser', 'en_analyse', 'decision_soumission', 'en_preparation', 'en_validation', 'attente_documents', 'pret_deposer']
 
-/** Transitions autorisées (miroir client de tender_set_status, M30). */
+/** Transitions autorisées (miroir client de tender_set_status, M30/M41). */
 export const allowedTransitions: Record<TenderStatus, TenderStatus[]> = {
-  identifie: ['a_analyser', 'en_preparation', 'attente_documents', 'pret_deposer', 'depose', 'annule'],
-  a_analyser: ['en_preparation', 'attente_documents', 'pret_deposer', 'depose', 'annule'],
-  en_preparation: ['attente_documents', 'pret_deposer', 'depose', 'annule'],
-  attente_documents: ['en_preparation', 'pret_deposer', 'depose', 'annule'],
-  pret_deposer: ['depose', 'annule'],
+  identifie: ['a_analyser', 'en_analyse', 'en_preparation', 'attente_documents', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  a_analyser: ['en_analyse', 'en_preparation', 'attente_documents', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  en_analyse: ['decision_soumission', 'en_preparation', 'attente_documents', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  decision_soumission: ['en_preparation', 'en_validation', 'attente_documents', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  en_preparation: ['en_validation', 'attente_documents', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  en_validation: ['attente_documents', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  attente_documents: ['en_preparation', 'en_validation', 'pret_deposer', 'depose', 'annule', 'abandonne'],
+  pret_deposer: ['depose', 'annule', 'abandonne'],
   depose: ['en_evaluation', 'gagne', 'perdu', 'annule'],
   en_evaluation: ['gagne', 'perdu', 'annule'],
-  gagne: [], perdu: [], annule: [],
+  gagne: [], perdu: [], annule: [], abandonne: [],
 }
 
-export const terminalStatuses: TenderStatus[] = ['gagne', 'perdu', 'annule']
+export const terminalStatuses: TenderStatus[] = ['gagne', 'perdu', 'annule', 'abandonne']
 
 export type TenderCategory = 'dao' | 'pieces_administratives' | 'offre_technique' | 'offre_financiere' | 'devis_fournisseurs' | 'justificatifs' | 'correspondances' | 'proces_verbaux' | 'resultats'
 
@@ -49,6 +52,8 @@ export interface TenderRow {
   awarded_at: string | null
   lost_reason: string | null
   responsible_id: string | null
+  announcement_url: string | null
+  submission_location: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -67,7 +72,12 @@ export interface TenderItemRow {
   amount_xof: string | number
   notes: string | null
   offer_template_id: string | null
+  item_category: string | null
+  specs: string | null
+  selected_supplier_company_id: string | null
+  selected_reason: string | null
   offer_templates?: { name: string } | { name: string }[] | null
+  selected_supplier?: { legal_name: string; trade_name: string | null } | { legal_name: string; trade_name: string | null }[] | null
 }
 
 export interface TenderQuoteRow {
@@ -77,7 +87,14 @@ export interface TenderQuoteRow {
   quote_xof: string | number
   source: string | null
   notes: string | null
+  brand_model: string | null
+  transport_cost_xof: string | number | null
+  lead_time_days: number | null
+  warranty_months: number | null
+  availability: string | null
+  quote_document_id: string | null
   companies: { legal_name: string; trade_name: string | null } | { legal_name: string; trade_name: string | null }[] | null
+  documents?: { id: string; metadata: Record<string, unknown> | null } | { id: string; metadata: Record<string, unknown> | null }[] | null
 }
 
 export interface TenderEventRow {
@@ -131,22 +148,29 @@ export interface LinkedOrderRow { id: string; order_number: string; amount_xof: 
 export interface LinkedProposalRow { id: string; proposal_number: string; status: string }
 
 export const tenderStatusLabels: Record<TenderStatus, string> = {
-  identifie: 'Identifié',
-  a_analyser: 'À analyser',
+  identifie: 'Détecté',
+  a_analyser: 'À étudier',
+  en_analyse: 'En analyse',
+  decision_soumission: 'Décision de soumission',
   en_preparation: 'En préparation',
+  en_validation: 'En validation',
   attente_documents: 'En attente de documents',
   pret_deposer: 'Prêt à déposer',
-  depose: 'Déposé',
-  en_evaluation: 'En évaluation',
+  depose: 'Soumis',
+  en_evaluation: 'En attente de résultat',
   gagne: 'Gagné',
   perdu: 'Perdu',
   annule: 'Annulé',
+  abandonne: 'Abandonné',
 }
 
 export const tenderStatusClass: Record<TenderStatus, string> = {
   identifie: '',
   a_analyser: 'crm-status-negotiation',
+  en_analyse: 'crm-status-negotiation',
+  decision_soumission: 'crm-status-qualified',
   en_preparation: 'crm-status-proposal',
+  en_validation: 'crm-status-qualified',
   attente_documents: 'crm-status-negotiation',
   pret_deposer: 'crm-status-proposal',
   depose: 'crm-status-qualified',
@@ -154,6 +178,7 @@ export const tenderStatusClass: Record<TenderStatus, string> = {
   gagne: 'crm-status-won',
   perdu: 'crm-status-lost',
   annule: 'crm-status-cancelled',
+  abandonne: 'crm-status-cancelled',
 }
 
 /** Libellés rétrocompatibles pour l'historique des migrations 20-29. */
@@ -174,9 +199,32 @@ export const tenderEventLabels: Record<string, string> = {
   status_gagne: 'Appel d’offres gagné',
   status_perdu: 'Appel d’offres perdu',
   status_annule: 'Appel d’offres annulé',
+  status_en_analyse: 'Passé en analyse',
+  status_decision_soumission: 'Décision de soumission',
+  status_en_validation: 'Offre en validation interne',
+  status_abandonne: 'Dossier abandonné',
   item_added: 'Ligne ajoutée',
   item_removed: 'Ligne retirée',
   quote_set: 'Devis fournisseur enregistré',
+  supplier_selected: 'Fournisseur retenu',
+}
+
+export const tenderItemCategoryLabels: Record<string, string> = {
+  equipement: 'Équipement',
+  prestation: 'Prestation',
+}
+
+export const availabilityLabels: Record<string, string> = {
+  en_stock: 'En stock',
+  a_commander: 'À commander',
+  sur_devis: 'Sur devis',
+}
+
+/** Totaux HT / TVA / TTC d'une offre DAO (taux configurable, app_settings). */
+export function tenderTotals(items: { amount_xof: string | number }[], vatPct: number): { ht: number; tva: number; ttc: number } {
+  const ht = items.reduce((sum, item) => sum + Number(item.amount_xof ?? 0), 0)
+  const tva = Math.round(ht * (vatPct / 100))
+  return { ht, tva, ttc: ht + tva }
 }
 
 export function companyLabel(company: { legal_name: string; trade_name: string | null } | null | undefined): string {
