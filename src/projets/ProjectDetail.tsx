@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, CheckCircle2, CircleDot, ListPlus, Loader2, Lock, PencilLine, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/button'
+import { EntityDocuments } from '../components/EntityDocuments'
 import { useAuth } from '../lib/auth'
 import { usePermits } from '../lib/permissions'
 import { getProject, getProjectEvents, getProjectSteps, listPersonOptions, addStep, removeStep, setStepStatus, setProgress } from './api'
@@ -67,8 +68,7 @@ export function ProjectDetail() {
           <div><span>Fin réelle</span><strong>{dateFr(project.actual_end_date)}</strong></div>
           <div><span>Notes</span><strong>{project.notes || 'Aucune'}</strong></div>
         </div></section>
-        <section className="crm-section"><h2>Étapes de travail</h2>
-          {steps.map(step => {
+        <section className="crm-section"><h2>Étapes de travail</h2>          {steps.map(step => {
             const Icon = stepIcons[step.status] ?? CircleDot
             return <div className="proj-step" key={step.id}>
               <Icon size={17} className={step.status === 'en_cours' ? 'proj-spin' : ''} />
@@ -90,6 +90,7 @@ export function ProjectDetail() {
           </form>}
           <p className="commercial-note">L’avancement se recalcule automatiquement à chaque étape terminée.</p>
         </section>
+        <EntityDocuments entityTable="projects" entityId={project.id} companyId={project.client_company_id} title="Documents du projet" />
       </div>
       <aside>
         <section className="crm-section"><h2>Avancement</h2>

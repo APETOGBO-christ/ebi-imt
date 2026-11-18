@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/button'
+import { EntityDocuments } from '../components/EntityDocuments'
 import { useAuth } from '../lib/auth'
 import { getLeadNames } from '../crm/api'
 import { addOrderItem, getConfirmedCollected, getInstallments, getOrder, getOrderEvents, getOrderItems, getOrders, getProductionStatus, getProposal, listProjectChoices, removeOrderItem, setOrderProject, setOrderStatus } from './api'
@@ -76,6 +77,7 @@ export function OrderDetail() {
             <Button type="submit" disabled={busy}><Plus size={15} /> Ajouter</Button>
           </form>}
         </section>
+        <EntityDocuments entityTable="orders" entityId={order.id} companyId={order.company_id} title="Documents contractuels" />
         <section className="crm-section"><h2>Échéancier contractuel attendu</h2>{installments.map(item => <div className="commercial-installment" key={item.id}><div><strong>{item.installment_number === 1 ? 'Acompte attendu' : 'Solde attendu'}</strong><small>{item.trigger_event === 'at_order' ? 'À la commande' : 'À l’étape de livraison acceptée'} · {item.percentage_bps / 100} %</small></div><strong>{xofAmount(item.amount_xof)}</strong></div>)}<p className="commercial-note">Les échéances prévues ne prouvent aucun encaissement.</p><Link className="crm-quick-link" to={`/commandes/${order.id}/paiements`}>Voir paiements, instructions et reçus <ArrowRight size={15} /></Link></section>
         <section className="crm-section"><h2>Historique commercial</h2>{events.map(event => <div className="crm-list-row" key={event.id}><div><strong>{event.event_type.replace(/_/g, ' ')}</strong><small>{when(event.created_at)}</small></div></div>)}</section>
       </div><aside><section className="crm-section"><h2>Paiement réel</h2><div className="commercial-payment-real"><span>Encaissement net vérifié</span><strong>{collected === null ? 'Indisponible' : xofAmount(collected)}</strong></div><p>Solde restant : {collected === null ? 'indisponible' : xofAmount(Math.max(0, order.amount_xof - collected))}. Les déclarations ne sont pas comptées avant vérification.</p><Link className="crm-quick-link" to={`/commandes/${order.id}/paiements`}>Ouvrir le dossier financier <ArrowRight size={15} /></Link></section>
