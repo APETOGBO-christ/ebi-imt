@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { crmChanged } from '../crm/api'
-import type { CommercialEvent, CommercialSettings, Installment, Offer, OfferInput, OfferStatus, Order, OrderStatus, Proposal, ProposalDocument, ProposalInput, ProposalStatus } from './types'
+import type { CommercialEvent, CommercialSettings, Installment, Offer, OfferInput, OfferStatus, Order, OrderItem, OrderStatus, Proposal, ProposalDocument, ProposalInput, ProposalStatus } from './types'
 
 function db() { if (!supabase) throw new Error('Connexion Supabase non configurée.'); return supabase }
 function changed() { crmChanged() }
@@ -130,4 +130,34 @@ export async function getConfirmedCollected(orderId: string): Promise<number> {
     if ((data ?? []).length < 500) break
   }
   return total
+}
+
+export async function getOrderItems(orderId: string): Promise<OrderItem[]> {
+  const { data, error } = await db().from('order_items').select('*').eq('order_id', orderId).order('position')
+  fail(error); return data as OrderItem[]
+}
+
+export async function addOrderItem(orderId: string, input: {
+  designation: string; quantity: number; unit: string | null; unitPrice: number; discountPct: number; notes: string | null
+}): Promise<void> {
+  const { error } = await db().rpc('order_item_add', {
+    p_order_id: orderId, p_designation: input.designation, p_quantity: input.quantity,
+    p_unit: input.unit, p_unit_price_xof: input.unitPrice, p_discount_pct: input.discountPct, p_notes: input.notes,
+  })
+  fail(error); changed()
+}
+
+export async function removeOrderItem(itemId: string): Promise<void> {
+  const { error } = await db().rpc('order_item_remove', { p_item_id: itemId })
+  fail(error); changed()
+}
+
+export async function setOrderProject(orderId: string, projectId: string | null): Promise<void> {
+  const { error } = await db().rpc('order_set_project', { p_order_id: orderId, p_project_id: projectId })
+  fail(error); changed()
+}
+
+export async function listProjectChoices(): Promise<{ id: string; label: string }[]> {
+  const { data, error } = await db().from('projects').select('id,project_number,title').order('created_at', { ascending: false }).limit(200)
+  fail(error); return (data ?? []).map(row => ({ id: row.id, label: `${row.project_number} — ${row.title}` }))
 }

@@ -18,6 +18,11 @@ import { TendersPage } from './appels-offres/TendersPage'
 import { TenderDetail } from './appels-offres/TenderDetail'
 import { TenderForm } from './appels-offres/TenderForm'
 import { OrdersPage, OrderDetail } from './commercial/Orders'
+import { ProjectsPage } from './projets/ProjectsPage'
+import { ProjectDetail } from './projets/ProjectDetail'
+import { ProjectForm } from './projets/ProjectForm'
+import { PurchasesPage } from './achats/PurchasesPage'
+import { PurchaseDetail } from './achats/PurchaseDetail'
 import { PaymentsPage } from './payments/PaymentsPage'
 import { PaymentDetail } from './payments/PaymentDetail'
 import { PaymentSettings } from './payments/PaymentSettings'
@@ -314,6 +319,8 @@ export default function App() {
     <Route path="/propositions" element={page(<ProposalsPage />)} /><Route path="/propositions/:id/modifier" element={page(<ProposalEditor />)} /><Route path="/propositions/:id" element={page(<ProposalDetail />)} /><Route path="/prospects/:leadId/proposition/nouvelle" element={page(<ProposalEditor />)} />
     <Route path="/appels-offres" element={page(<TendersPage />)} /><Route path="/appels-offres/nouveau" element={page(<TenderForm />)} /><Route path="/appels-offres/:id/modifier" element={page(<TenderForm />)} /><Route path="/appels-offres/:id" element={page(<TenderDetail />)} />
     <Route path="/commandes" element={page(<OrdersPage />)} /><Route path="/commandes/:id" element={page(<OrderDetail />)} />
+    <Route path="/projets" element={page(<ProjectsPage />)} /><Route path="/projets/nouveau" element={page(<ProjectForm />)} /><Route path="/projets/:id/modifier" element={page(<ProjectForm />)} /><Route path="/projets/:id" element={page(<ProjectDetail />)} />
+    <Route path="/achats" element={page(<PurchasesPage />)} /><Route path="/achats/:id" element={page(<PurchaseDetail />)} />
     <Route path="/commandes/:id/paiements" element={page(<OrderPayments />)} />
     <Route path="/paiements" element={page(<PaymentsPage />)} /><Route path="/paiements/a-verifier" element={page(<PaymentsPage pendingOnly />)} /><Route path="/paiements/:id" element={page(<PaymentDetail />)} />
     <Route path="/parametres/moyens-paiement" element={page(<PaymentSettings />)} />

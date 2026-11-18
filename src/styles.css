@@ -170,3 +170,60 @@ h1,h2,h3,p{margin-top:0}h1,h2,h3{font-family:Manrope,sans-serif;letter-spacing:-
 .set-tabs{display:flex;gap:6px;margin-bottom:15px}
 .set-tabs button{border:1px solid #dce6f0;background:#fff;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;color:#5c7893;cursor:pointer}
 .set-tabs button.active{background:#2465c7;border-color:#2465c7;color:#fff}
+
+.proj-badge{display:inline-flex;align-items:center;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:800;background:#edf3f9;color:#607992;white-space:nowrap}
+.proj-active{background:#e6f6ed;color:#347e62}
+.proj-paused{background:#fff3dd;color:#9e752f}
+.proj-done{background:#e3eefc;color:#2d6dbc}
+.proj-cancelled{background:#fbeceb;color:#a6635d}
+.proj-progress-ring{display:inline-flex;align-items:baseline;gap:1px;font:800 17px Manrope;color:#245eaa}
+.proj-progress-ring small{font-size:10px}
+.proj-progress-block{display:grid;gap:8px;margin-bottom:14px}
+.proj-progress-block strong{font:800 26px Manrope;color:#245e9c}
+.proj-progress-bar{height:9px;border-radius:5px;background:#e7eef6;overflow:hidden}
+.proj-progress-bar span{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#2d6dbc,#57a3e8);transition:width .3s}
+.proj-progress-form{display:grid;gap:8px}
+.proj-progress-form label{font-size:11px;font-weight:700;color:#5c7893}
+.proj-progress-form input{min-height:36px;border:1px solid #dce6f0;border-radius:8px;padding:7px 10px;font-size:12px;color:#31526f;background:#fff}
+.proj-progress-form .button{justify-self:start}
+.proj-step{display:flex;align-items:center;gap:11px;border-top:1px solid #edf2f7;padding:11px 0}
+.proj-step:first-of-type{border-top:0}
+.proj-step>svg{color:#5c7893;flex:none}
+.proj-step>div{display:grid;gap:3px;flex:1;min-width:0}
+.proj-step strong{font-size:12px;color:#294b6e}
+.proj-step small{font-size:10px;color:#869bae}
+.proj-step-actions{display:flex;align-items:center;gap:6px}
+.proj-step-actions select{min-height:32px;border:1px solid #dce6f0;border-radius:7px;padding:5px 8px;font-size:11px;background:#fff;color:#31526f}
+.proj-step-form{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #e8eff6;flex-wrap:wrap}
+.proj-step-form>svg{color:#7c93a9;flex:none}
+.proj-step-form input{min-height:36px;border:1px solid #dce6f0;border-radius:8px;padding:7px 10px;font-size:12px;color:#31526f;background:#fff;flex:1;min-width:130px}
+.proj-spin{animation:proj-rotate 1.4s linear infinite}
+@keyframes proj-rotate{to{transform:rotate(360deg)}}
+.proj-foot{display:flex;align-items:center;gap:7px;font-size:11px;color:#8498ac;margin-top:14px}
+.proj-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.ach-badge{display:inline-flex;align-items:center;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:800;background:#edf3f9;color:#607992;white-space:nowrap}
+.ach-draft{background:#eef1f5;color:#61758a}
+.ach-wait{background:#fff3dd;color:#9e752f}
+.ach-ok{background:#e6f6ed;color:#347e62}
+.ach-done{background:#e3eefc;color:#2d6dbc}
+.ach-cancelled{background:#fbeceb;color:#a6635d}
+.ach-create-form,.ach-inline-form{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;background:#f6f9fc;border:1px solid #e0e9f2;border-radius:11px;padding:14px;margin-bottom:16px}
+.ach-create-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end}
+.ach-create-form label{font-size:11px;font-weight:700;color:#5c7893}
+.ach-create-form select,.ach-inline-form input,.ach-inline-form select{min-height:36px;border:1px solid #dce6f0;border-radius:8px;padding:7px 10px;font-size:12px;color:#31526f;background:#fff}
+.ach-inline-form .commercial-note,.ach-create-form .commercial-note{flex-basis:100%;margin:0}
+.ach-hint{font-size:11px;font-weight:700;color:#5c7893;align-self:center}
+.ach-total-row{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e8eff6;margin-top:10px;padding-top:11px;font-size:12px;color:#5c7893}
+.ach-total-row strong{font:800 15px Manrope;color:#245e9c}
+.ach-delivery{border-top:1px solid #edf2f7;padding:12px 0;display:grid;gap:7px}
+.ach-delivery:first-of-type{border-top:0}
+.ach-delivery-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ach-delivery-head strong{font-size:12px;color:#294b6e}
+.ach-delivery small{font-size:10px;color:#869bae;line-height:1.5}
+.ach-delivery-line{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#5c7893;background:#f6f9fc;border-radius:6px;padding:6px 9px}
+.ach-delivery-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ach-delivery-actions form{display:flex;align-items:center;gap:6px}
+.ach-delivery-actions input{min-height:32px;border:1px solid #dce6f0;border-radius:7px;padding:5px 8px;font-size:11px;background:#fff;max-width:130px}
+.ach-line-form{margin-bottom:0;padding:9px;background:#fff}
+.ach-line-form input{flex:1;min-width:90px}
+.ach-verify{display:flex;gap:5px}

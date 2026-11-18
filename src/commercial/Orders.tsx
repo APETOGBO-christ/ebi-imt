@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { useAuth } from '../lib/auth'
 import { getLeadNames } from '../crm/api'
-import { getConfirmedCollected, getInstallments, getOrder, getOrderEvents, getOrders, getProductionStatus, getProposal, setOrderStatus } from './api'
-import { orderStatusLabels, paymentPlanLabels, xofAmount, type CommercialEvent, type Installment, type Order, type OrderStatus, type Proposal } from './types'
+import { addOrderItem, getConfirmedCollected, getInstallments, getOrder, getOrderEvents, getOrderItems, getOrders, getProductionStatus, getProposal, listProjectChoices, removeOrderItem, setOrderProject, setOrderStatus } from './api'
+import { orderStatusLabels, paymentPlanLabels, xofAmount, type CommercialEvent, type Installment, type Order, type OrderItem, type OrderStatus, type Proposal } from './types'
 
 const when = (value: string) => new Intl.DateTimeFormat('fr-TG', { timeZone: 'Africa/Lome', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 
@@ -31,26 +31,62 @@ export function OrderDetail() {
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const [installments, setInstallments] = useState<Installment[]>([])
   const [events, setEvents] = useState<CommercialEvent[]>([])
+  const [items, setItems] = useState<OrderItem[]>([])
+  const [projects, setProjects] = useState<{ id: string; label: string }[]>([])
+  const [itemForm, setItemForm] = useState({ designation: '', quantity: '1', unit: 'u', price: '', discount: '0' })
   const [collected, setCollected] = useState<number | null>(null)
   const [productionStatus, setProductionStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
   useEffect(() => { if (!id) return; getOrder(id).then(async item => {
-    const [p, scheduled, history, paid, production] = await Promise.all([getProposal(item.proposal_id), getInstallments(id), getOrderEvents(id), getConfirmedCollected(id), getProductionStatus(id)])
-    setOrder(item); setProposal(p); setInstallments(scheduled); setEvents(history); setCollected(paid); setProductionStatus(production)
+    const [p, scheduled, history, paid, production, lines, projectOptions] = await Promise.all([getProposal(item.proposal_id), getInstallments(id), getOrderEvents(id), getConfirmedCollected(id), getProductionStatus(id), getOrderItems(id), listProjectChoices()])
+    setOrder(item); setProposal(p); setInstallments(scheduled); setEvents(history); setCollected(paid); setProductionStatus(production); setItems(lines); setProjects(projectOptions)
   }).catch(e => setError(e.message)) }, [id, refresh])
   async function change(status: OrderStatus) { if (!id) return; setBusy(true); setError(null); try { await setOrderStatus(id, status); setRefresh(x => x + 1) } catch (e) { setError(e instanceof Error ? e.message : 'Statut non modifié.') } finally { setBusy(false) } }
+  async function run(action: () => Promise<unknown>) { setBusy(true); setError(null); try { await action(); setRefresh(x => x + 1) } catch (e) { setError(e instanceof Error ? e.message : 'Action refusée.') } finally { setBusy(false) } }
+  const draft = order?.order_status === 'draft'
   return <div className="crm-page"><Link to="/commandes" className="crm-back"><ArrowLeft size={16} /> Commandes</Link>
     {error && <div className="crm-alert" role="alert">{error}</div>}
     {!order ? <div className="crm-empty">Chargement de la commande…</div> : <>
       <div className="crm-detail-head"><span className="detail-logo"><ShoppingBag size={25} /></span><div><span className="section-kicker">COMMANDE / {order.order_number}</span><h1>{String((order.offer_snapshot.client as Record<string, unknown> | undefined)?.company_name ?? 'Client')}</h1><div className="detail-sub"><span className={`commercial-badge commercial-${order.order_status}`}>{orderStatusLabels[order.order_status]}</span><span>{xofAmount(order.amount_xof)} contractuels</span></div></div></div>
       {manager && <div className="crm-head-actions commercial-actions">{order.order_status === 'draft' && <Button disabled={busy} onClick={() => void change('confirmed')}>Confirmer la commande</Button>}{order.order_status === 'confirmed' && <Button disabled={busy} onClick={() => void change('in_progress')}>Marquer en cours</Button>}{order.order_status === 'in_progress' && <Button disabled={busy} onClick={() => void change('completed')}>Marquer terminée</Button>}{['draft','confirmed','in_progress'].includes(order.order_status) && <Button variant="secondary" disabled={busy} onClick={() => void change('cancelled')}>Annuler la commande</Button>}</div>}
       <div className="crm-detail-grid"><div>
-        <section className="crm-section"><h2>Contrat conservé</h2><div className="crm-facts"><div><span>Proposition</span><strong>{proposal?.proposal_number ?? '—'}</strong></div><div><span>Offre et version</span><strong>{String(order.offer_snapshot.name ?? 'Offre')} · V{order.offer_version}</strong></div><div><span>Montant contractuel</span><strong>{xofAmount(order.amount_xof)}</strong></div><div><span>Échéancier</span><strong>{paymentPlanLabels[order.payment_plan]}</strong></div><div><span>Conditions particulières</span><strong>{order.contractual_terms || 'Aucune'}</strong></div><div><span>Confirmée le</span><strong>{order.confirmed_at ? when(order.confirmed_at) : 'En attente'}</strong></div></div><p className="commercial-note">Ces conditions sont copiées depuis la proposition acceptée. Une nouvelle version de l’offre ne les modifiera pas.</p>{proposal && <Link className="crm-quick-link" to={`/propositions/${proposal.id}`}>Voir la proposition et son PDF <ArrowRight size={15} /></Link>}</section>
+        <section className="crm-section"><h2>Contrat conservé</h2><div className="crm-facts"><div><span>Proposition</span><strong>{proposal?.proposal_number ?? '—'}</strong></div><div><span>Offre et version</span><strong>{String(order.offer_snapshot.name ?? 'Offre')} · V{order.offer_version}</strong></div><div><span>Montant contractuel</span><strong>{xofAmount(order.amount_xof)}</strong></div><div><span>Total HT</span><strong>{order.amount_ht_xof !== null ? xofAmount(order.amount_ht_xof) : '—'}</strong></div><div><span>TVA</span><strong>{order.amount_tva_xof !== null ? xofAmount(order.amount_tva_xof) : '—'}</strong></div><div><span>Total TTC</span><strong>{order.amount_ttc_xof !== null ? xofAmount(order.amount_ttc_xof) : '—'}</strong></div><div><span>Échéance de livraison</span><strong>{order.delivery_deadline ? new Date(order.delivery_deadline).toLocaleDateString('fr-TG') : '—'}</strong></div><div><span>Échéancier</span><strong>{paymentPlanLabels[order.payment_plan]}</strong></div><div><span>Conditions particulières</span><strong>{order.contractual_terms || 'Aucune'}</strong></div><div><span>Confirmée le</span><strong>{order.confirmed_at ? when(order.confirmed_at) : 'En attente'}</strong></div></div><p className="commercial-note">Ces conditions sont copiées depuis la proposition acceptée. Une nouvelle version de l’offre ne les modifiera pas.</p>{proposal && <Link className="crm-quick-link" to={`/propositions/${proposal.id}`}>Voir la proposition et son PDF <ArrowRight size={15} /></Link>}</section>
+        <section className="crm-section"><h2>Articles de la commande</h2>
+          <div className="crm-table-wrap"><table className="crm-table"><thead><tr><th>#</th><th>Désignation</th><th>Qté</th><th>PU</th><th>Remise</th><th>Montant</th><th /></tr></thead>
+            <tbody>{items.map(item => <tr key={item.id}><td>{item.position}</td><td>{item.designation}</td><td>{item.quantity} {item.unit ?? ''}</td><td>{xofAmount(item.unit_price_xof)}</td><td>{item.discount_pct} %</td><td>{xofAmount(item.amount_xof)}</td>
+              <td>{draft && <Button variant="ghost" size="icon" disabled={busy} aria-label={`Supprimer ${item.designation}`} onClick={() => void run(() => removeOrderItem(item.id))}><Trash2 size={15} /></Button>}</td></tr>)}
+              {items.length === 0 && <tr><td colSpan={7}><div className="notif-empty">Aucun article chiffré. Les articles ne sont modifiables qu’en brouillon.</div></td></tr>}
+            </tbody></table></div>
+          <div className="ach-total-row"><span>Total TTC (recalculé avec la TVA configurée)</span><strong>{order.amount_ttc_xof !== null ? xofAmount(order.amount_ttc_xof) : xofAmount(items.reduce((sum, item) => sum + item.amount_xof, 0))}</strong></div>
+          {draft && <form className="ach-inline-form" onSubmit={event => {
+            event.preventDefault()
+            if (!itemForm.designation.trim() || !itemForm.price) return
+            void run(async () => {
+              await addOrderItem(order.id, { designation: itemForm.designation.trim(), quantity: Number(itemForm.quantity), unit: itemForm.unit || null, unitPrice: Number(itemForm.price), discountPct: Number(itemForm.discount || 0), notes: null })
+              setItemForm({ designation: '', quantity: '1', unit: 'u', price: '', discount: '0' })
+            })
+          }}>
+            <input aria-label="Désignation de l’article" placeholder="Désignation" value={itemForm.designation} onChange={event => setItemForm({ ...itemForm, designation: event.target.value })} />
+            <input aria-label="Quantité" type="number" min={0.001} step="any" value={itemForm.quantity} onChange={event => setItemForm({ ...itemForm, quantity: event.target.value })} />
+            <input aria-label="Unité" placeholder="Unité" value={itemForm.unit} onChange={event => setItemForm({ ...itemForm, unit: event.target.value })} />
+            <input aria-label="Prix unitaire" type="number" min={0} placeholder="PU (FCFA)" value={itemForm.price} onChange={event => setItemForm({ ...itemForm, price: event.target.value })} />
+            <input aria-label="Remise en pourcentage" type="number" min={0} max={100} placeholder="Remise %" value={itemForm.discount} onChange={event => setItemForm({ ...itemForm, discount: event.target.value })} />
+            <Button type="submit" disabled={busy}><Plus size={15} /> Ajouter</Button>
+          </form>}
+        </section>
         <section className="crm-section"><h2>Échéancier contractuel attendu</h2>{installments.map(item => <div className="commercial-installment" key={item.id}><div><strong>{item.installment_number === 1 ? 'Acompte attendu' : 'Solde attendu'}</strong><small>{item.trigger_event === 'at_order' ? 'À la commande' : 'À l’étape de livraison acceptée'} · {item.percentage_bps / 100} %</small></div><strong>{xofAmount(item.amount_xof)}</strong></div>)}<p className="commercial-note">Les échéances prévues ne prouvent aucun encaissement.</p><Link className="crm-quick-link" to={`/commandes/${order.id}/paiements`}>Voir paiements, instructions et reçus <ArrowRight size={15} /></Link></section>
         <section className="crm-section"><h2>Historique commercial</h2>{events.map(event => <div className="crm-list-row" key={event.id}><div><strong>{event.event_type.replace(/_/g, ' ')}</strong><small>{when(event.created_at)}</small></div></div>)}</section>
-      </div><aside><section className="crm-section"><h2>Paiement réel</h2><div className="commercial-payment-real"><span>Encaissement net vérifié</span><strong>{collected === null ? 'Indisponible' : xofAmount(collected)}</strong></div><p>Solde restant : {collected === null ? 'indisponible' : xofAmount(Math.max(0, order.amount_xof - collected))}. Les déclarations ne sont pas comptées avant vérification.</p><Link className="crm-quick-link" to={`/commandes/${order.id}/paiements`}>Ouvrir le dossier financier <ArrowRight size={15} /></Link></section><section className="crm-section"><h2>Production</h2><p>{productionStatus ? `Statut de production enregistré : ${productionStatus.replace(/_/g, ' ')}. Le statut commercial ne vaut pas livraison.` : 'Aucun projet de production lié à cette commande.'}</p></section></aside></div>
+      </div><aside><section className="crm-section"><h2>Paiement réel</h2><div className="commercial-payment-real"><span>Encaissement net vérifié</span><strong>{collected === null ? 'Indisponible' : xofAmount(collected)}</strong></div><p>Solde restant : {collected === null ? 'indisponible' : xofAmount(Math.max(0, order.amount_xof - collected))}. Les déclarations ne sont pas comptées avant vérification.</p><Link className="crm-quick-link" to={`/commandes/${order.id}/paiements`}>Ouvrir le dossier financier <ArrowRight size={15} /></Link></section>
+        <section className="crm-section"><h2>Projet rattaché</h2>
+          {order.project_id ? <p><Link to={`/projets/${order.project_id}`}>Ouvrir le projet</Link> — les achats et réceptions y sont suivis.</p> : <p className="commercial-note">Aucun projet rattaché à cette commande.</p>}
+          {draft && <select aria-label="Rattacher à un projet" defaultValue={order.project_id ?? ''} disabled={busy} onChange={event => void run(() => setOrderProject(order.id, event.target.value || null))}>
+            <option value="">Aucun projet</option>
+            {projects.map(project => <option key={project.id} value={project.id}>{project.label}</option>)}
+          </select>}
+        </section>
+        <section className="crm-section"><h2>Production</h2><p>{productionStatus ? `Statut de production enregistré : ${productionStatus.replace(/_/g, ' ')}. Le statut commercial ne vaut pas livraison.` : 'Aucun projet de production lié à cette commande.'}</p></section></aside></div>
     </>}
   </div>
 }

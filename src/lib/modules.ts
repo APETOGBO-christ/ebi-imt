@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
-import { LayoutDashboard, UsersRound, BriefcaseBusiness, CalendarDays, FileText, FileCheck2, ShoppingBag, WalletCards, ReceiptText, BadgePercent, MonitorPlay, FileSpreadsheet, ChartNoAxesCombined, Settings2, Building2, FolderOpen, Gavel } from 'lucide-react'
+import { LayoutDashboard, UsersRound, BriefcaseBusiness, CalendarDays, FileText, FileCheck2, ShoppingBag, WalletCards, ReceiptText, BadgePercent, MonitorPlay, FileSpreadsheet, ChartNoAxesCombined, Settings2, Building2, FolderOpen, Gavel, FolderKanban, ShoppingCart } from 'lucide-react'
 
-export type ModuleId = 'dashboard' | 'societes' | 'prospects' | 'sales' | 'activities' | 'offers' | 'proposals' | 'tenders' | 'orders' | 'payments' | 'expenses' | 'commissions' | 'production' | 'imports' | 'reports' | 'bibliotheque' | 'settings'
+export type ModuleId = 'dashboard' | 'societes' | 'prospects' | 'sales' | 'activities' | 'offers' | 'proposals' | 'tenders' | 'projets' | 'orders' | 'achats' | 'payments' | 'expenses' | 'commissions' | 'production' | 'imports' | 'reports' | 'bibliotheque' | 'settings'
 export interface Module { id: ModuleId; label: string; path: string; icon: LucideIcon; description: string }
 export const modules: Module[] = [
   { id: 'dashboard', label: 'Vue d’ensemble', path: '/', icon: LayoutDashboard, description: 'Le parcours commercial en un regard.' },
@@ -12,7 +12,9 @@ export const modules: Module[] = [
   { id: 'offers', label: 'Offres et propositions', path: '/offres', icon: FileText, description: 'Catalogue, versions et propositions commerciales.' },
   { id: 'proposals', label: 'Propositions', path: '/propositions', icon: FileCheck2, description: 'Validation et documents adressés aux prospects.' },
   { id: 'tenders', label: 'Appels d’offres', path: '/appels-offres', icon: Gavel, description: 'Dossiers DAO : préparation, dépôt, résultat et lignes chiffrées.' },
+  { id: 'projets', label: 'Projets', path: '/projets', icon: FolderKanban, description: 'Étapes, avancement et montants contractuels des projets.' },
   { id: 'orders', label: 'Commandes', path: '/commandes', icon: ShoppingBag, description: 'Commandes acceptées et suivi contractuel.' },
+  { id: 'achats', label: 'Achats', path: '/achats', icon: ShoppingCart, description: 'Commandes fournisseurs, factures, décaissements et réceptions.' },
   { id: 'payments', label: 'Paiements et reçus', path: '/paiements', icon: WalletCards, description: 'Encaissements confirmés et documents associés.' },
   { id: 'expenses', label: 'Dépenses', path: '/depenses', icon: ReceiptText, description: 'Frais commerciaux et justificatifs.' },
   { id: 'commissions', label: 'Commissions', path: '/commissions', icon: BadgePercent, description: 'Calculs, validations et versements.' },

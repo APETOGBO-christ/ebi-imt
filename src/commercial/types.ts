@@ -37,7 +37,12 @@ export interface Order { id: string; order_number: string; proposal_id: string; 
   lead_id: string; sales_rep_id: string; offer_template_id: string; offer_version: number;
   offer_snapshot: Record<string, unknown>; amount_xof: number; contractual_terms: string | null;
   payment_plan: PaymentPlan; payment_terms_snapshot: Record<string, unknown>;
-  order_status: OrderStatus; confirmed_at: string | null; ordered_at: string; created_at: string }
+  order_status: OrderStatus; confirmed_at: string | null; ordered_at: string; created_at: string;
+  amount_ht_xof: number | null; amount_tva_xof: number | null; amount_ttc_xof: number | null;
+  delivery_deadline: string | null; project_id: string | null; tender_id: string | null }
+export interface OrderItem { id: string; order_id: string; position: number; designation: string;
+  quantity: number; unit: string | null; unit_price_xof: number; discount_pct: number;
+  amount_xof: number; notes: string | null; created_at: string }
 export interface Installment { id: string; installment_number: number; trigger_event: 'at_order' | 'at_delivery';
   percentage_bps: number; amount_xof: number; due_at: string | null; terms: string | null }
 export interface CommercialSettings { id: true; company_name: string; professional_email: string | null;
